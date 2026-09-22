@@ -1151,6 +1151,22 @@ The Shop screen (`app/(tabs)/shop.tsx`) follows the strict glassmorphism design 
 
 ---
 
+# 45. Practice Setup & AI Call Screen Glassmorphism Specification
+
+The Practice experience is split into two dedicated screens adhering strictly to the shared glassmorphism design system matching `shop.tsx` and `profile.tsx`:
+
+* **Architecture & Screen Decomposition**: `app/(tabs)/practice.tsx` serves strictly as the Practice Setup & Input view where users select scenarios, topics, goals, difficulty levels, and practice styles. Upon starting a session, it navigates cleanly via Expo Router (`router.push`) to `app/practice-call.tsx` which manages the live Stream AI video call session.
+* **Color Palette & Glass Base**: Derived from `LessonStartView` / `ShopScreen` / `ProfileScreen` (`COLORS.background` `#F5F2FF`, `COLORS.purple` `#6847F5`, `COLORS.text` `#111126`, `COLORS.textSecondary` `#626078`). Uses sleek translucent glass cards (`rgba(104,71,245,0.035)`) with subtle top highlight edges (`rgba(255,255,255,0.70)`) and glass borders (`rgba(104,71,245,0.16)`).
+* **Background Layer**: Both screens render a `@shopify/react-native-skia` Canvas with a linear background gradient (`["#F5F2FF", "#F0EDFF", "#F8F8FF", "#EEF9F7"]`) and floating radial ambient lighting circles (`rgba(111,82,245,0.14)`, `rgba(61,205,226,0.13)`, `rgba(112,87,245,0.10)`).
+* **Preset Scenario Carousel**: Horizontal scrollable glass cards (`rgba(104,71,245,0.035)`) with category icon pods (Travel, Interview, Cafe, Casual, Doctor, Shopping) and selected glowing purple border highlights (`#6847F5`).
+* **Interactive Glass Inputs**: Translucent text inputs (`rgba(104,71,245,0.035)` background, `rgba(104,71,245,0.16)` border) with leading Ionicons, active focus glow states (`rgba(104,71,245,0.08)` background, `#6847F5` border), and instant text reset buttons.
+* **Difficulty & Style Grid**: Chips for Beginner, Intermediate, and Advanced with active glass fills, alongside a 2x2 grid of translucent style cards (Guided, Free Talk, Role-play, Q&A) featuring glowing icon pods.
+* **Live AI Call Stage**: `app/practice-call.tsx` features a glass stage with floating topic badge, session timer badge, center stage Mascot with animated voice glow sphere, closed captions feed distinguishing AI Teacher vs User bubbles, and a push-to-talk mic button.
+* **Android Elevation Safety**: Removes native `elevation` properties from all translucent glass components across both screens to prevent Android white rectangle box artifacts.
+
+---
+
+
 ## FINAL RULE
 
 If a proposed UI implementation conflicts with this document, follow this document unless the user explicitly tells you to override a specific rule.

@@ -1,42 +1,28 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  Call,
-  CallClosedCaption,
-  StreamCall,
-  StreamVideo,
-  StreamVideoClient,
-  useCallStateHooks,
-} from "@stream-io/video-react-native-sdk";
+  Canvas,
+  Circle,
+  LinearGradient,
+  Rect,
+  vec,
+} from "@shopify/react-native-skia";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
-  ActivityIndicator,
-  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors as themeColors } from "@/constant/constant";
-import { supabase } from "@/services/supabase";
-
 const mascotImage = require("@/assets/images/mascot.png");
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "";
-const AGENT_USER_ID = "ai-teacher";
-
-const MAX_CALL_SECONDS = 120;
-
-type Mode = "setup" | "connecting" | "call" | "ended" | "error";
-
-type Difficulty =
-  | "beginner"
-  | "intermediate"
-  | "advanced";
+type Difficulty = "beginner" | "intermediate" | "advanced";
 
 type ConversationStyle =
   | "guided_conversation"
@@ -44,1503 +30,472 @@ type ConversationStyle =
   | "roleplay"
   | "question_answer";
 
-type PartialCaption = {
-  speaker: "agent" | "user";
-  text: string;
-};
+interface PresetScenario {
+  id: string;
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  topic: string;
+  goal: string;
+  badge: string;
+}
 
-const colors = {
-  ...themeColors,
-  primary: {
-    purple: themeColors.primary,
+const PRESET_SCENARIOS: PresetScenario[] = [
+  {
+    id: "travel",
+    title: "Travel & Airport",
+    icon: "airplane-outline",
+    topic: "Airport & Flight Booking",
+    goal: "Ask for directions and book tickets confidently",
+    badge: "Popular",
   },
-  text: themeColors.textPrimary,
-  secondary: themeColors.textSecondary,
-  border: themeColors.border,
-  surface: themeColors.inputBackground,
-  success: themeColors.success,
-  danger: themeColors.danger,
+  {
+    id: "interview",
+    title: "Job Interview",
+    icon: "briefcase-outline",
+    topic: "Professional Self Introduction",
+    goal: "Answer common interview questions smoothly",
+    badge: "Career",
+  },
+  {
+    id: "cafe",
+    title: "Ordering Coffee",
+    icon: "cafe-outline",
+    topic: "Cafe & Restaurant Order",
+    goal: "Order food and express dietary preferences",
+    badge: "Daily",
+  },
+  {
+    id: "casual",
+    title: "Casual Chat",
+    icon: "chatbubbles-outline",
+    topic: "Hobbies & Weekend Plans",
+    goal: "Maintain friendly small talk with strangers",
+    badge: "Fun",
+  },
+  {
+    id: "doctor",
+    title: "Doctor Visit",
+    icon: "medical-outline",
+    topic: "Describing Symptoms",
+    goal: "Explain health symptoms and understand advice",
+    badge: "Health",
+  },
+  {
+    id: "shopping",
+    title: "Shopping & Bargaining",
+    icon: "cart-outline",
+    topic: "Store Shopping & Discounts",
+    goal: "Ask about sizes, prices, and return policy",
+    badge: "Daily",
+  },
+];
+
+/* ============================================================
+   COLOR PALETTE (REF: LessonStartView / Shop / Profile)
+============================================================ */
+const COLORS = {
+  background: "#F5F2FF",
+  purple: "#6847F5",
+  purpleDark: "#5135D4",
+  text: "#111126",
+  textSecondary: "#626078",
+  textMuted: "#77738C",
+  green: "#16C58B",
+  gold: "#F7B718",
+  cyan: "#3DCDE2",
+  orange: "#FF9600",
+  danger: "#FF4B4B",
+  white: "#FFFFFF",
+  glassBg: "rgba(104,71,245,0.035)",
+  glassBgSelected: "rgba(104,71,245,0.08)",
+  glassBorder: "rgba(104,71,245,0.16)",
+  glassBorderSelected: "rgba(104,71,245,0.32)",
+  glassTopHighlight: "rgba(255,255,255,0.70)",
 };
 
-export default function FreeTeacherScreen() {
+export default function FreeTeacherSetupScreen() {
   const router = useRouter();
-
-  const [mode, setMode] = useState<Mode>("setup");
+  const { width, height } = useWindowDimensions();
 
   const [topic, setTopic] = useState("");
   const [goal, setGoal] = useState("");
-
-  const [difficulty, setDifficulty] =
-    useState<Difficulty>("beginner");
-
+  const [difficulty, setDifficulty] = useState<Difficulty>("beginner");
   const [conversationStyle, setConversationStyle] =
     useState<ConversationStyle>("guided_conversation");
 
-  const [client, setClient] =
-    useState<StreamVideoClient | null>(null);
+  const [focusedInput, setFocusedInput] = useState<"topic" | "goal" | null>(null);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
 
-  const [call, setCall] =
-    useState<Call | null>(null);
+  function applyPreset(preset: PresetScenario) {
+    setSelectedPresetId(preset.id);
+    setTopic(preset.topic);
+    setGoal(preset.goal);
+  }
 
-  const [agentStatus, setAgentStatus] = useState<
-    "idle" | "connecting" | "connected" | "failed"
-  >("idle");
-
-  const [secondsLeft, setSecondsLeft] =
-    useState(MAX_CALL_SECONDS);
-
-  const [endedReason, setEndedReason] =
-    useState<string | null>(null);
-
-  const callRef =
-    useRef<Call | null>(null);
-
-  const clientRef =
-    useRef<StreamVideoClient | null>(null);
-
-  const agentSessionRef =
-    useRef<string | null>(null);
-
-  const mountedRef =
-    useRef(true);
-
-  const leavingRef =
-    useRef(false);
-
-  const timerRef =
-    useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-      cleanup();
-    };
-  }, []);
-
-  // ============================================================
-  // START FREE TEACHER
-  // ============================================================
-
-  async function startFreeTeacher() {
-    if (mode !== "setup") return;
-
-    try {
-      setMode("connecting");
-      setAgentStatus("connecting");
-      setEndedReason(null);
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
-        throw new Error("User is not authenticated");
-      }
-
-      // ----------------------------------------------------
-      // STREAM TOKEN
-      // ----------------------------------------------------
-
-      const tokenResponse = await fetch(
-        `${API_URL}/api/stream-token`,
-        {
-          method: "POST",
-          headers: {
-            Authorization:
-              `Bearer ${session.access_token}`,
-            "Content-Type":
-              "application/json",
-          },
-        }
-      );
-
-      const tokenData =
-        await tokenResponse.json();
-
-      if (!tokenResponse.ok) {
-        throw new Error(
-          tokenData?.error ??
-          "Failed to get Stream token"
-        );
-      }
-
-      const {
-        token,
-        apiKey,
-        userId,
-      } = tokenData;
-
-      // ----------------------------------------------------
-      // STREAM CLIENT
-      // ----------------------------------------------------
-
-      const streamClient =
-        StreamVideoClient.getOrCreateInstance({
-          apiKey,
-          token,
-          user: {
-            id: userId,
-            name:
-              session.user.user_metadata
-                ?.full_name ??
-              session.user.email ??
-              "Student",
-          },
-        });
-
-      // ----------------------------------------------------
-      // UNIQUE FREE TEACHER CALL
-      // ----------------------------------------------------
-
-      const callId = `ai-ft-${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 8)}`;
-
-      const streamCall =
-        streamClient.call(
-          "default",
-          callId
-        );
-
-      await streamCall.join({
-        create: true,
-      });
-
-      // ----------------------------------------------------
-      // START WITH MICROPHONE OFF
-      // ----------------------------------------------------
-
-      try {
-        await streamCall.microphone.disable();
-      } catch (error) {
-        console.warn(
-          "Could not disable microphone:",
-          error
-        );
-      }
-
-      // ----------------------------------------------------
-      // FREE TEACHER CUSTOM DATA
-      // ----------------------------------------------------
-
-      const freeTeacherCustom = {
-        mode: "free_teacher",
-
-        source_language: "hi",
-        target_language: "en",
-
-        topic:
-          topic.trim() || null,
-
-        goal:
-          goal.trim() || null,
-
+  function handleStart() {
+    router.push({
+      pathname: "/practice-call",
+      params: {
+        topic: topic.trim(),
+        goal: goal.trim(),
         difficulty,
-
-        conversation_style:
-          conversationStyle,
-
-        max_duration_seconds:
-          MAX_CALL_SECONDS,
-      };
-
-      console.log(
-        "FREE TEACHER PAYLOAD",
-        freeTeacherCustom
-      );
-
-      await streamCall.update({
-        custom: freeTeacherCustom,
-      });
-
-      // ----------------------------------------------------
-      // CLOSED CAPTIONS
-      // ----------------------------------------------------
-
-      try {
-        await streamCall.startClosedCaptions();
-      } catch (error) {
-        console.warn(
-          "Closed captions failed:",
-          error
-        );
-      }
-
-      callRef.current = streamCall;
-      clientRef.current = streamClient;
-
-      if (!mountedRef.current) {
-        await streamCall.leave();
-        await streamClient.disconnectUser();
-        return;
-      }
-
-      setClient(streamClient);
-      setCall(streamCall);
-      setMode("call");
-
-      // ----------------------------------------------------
-      // START 2 MINUTE CLIENT TIMER
-      //
-      // This is UX protection.
-      // The Python agent ALSO has a server-side timer.
-      // ----------------------------------------------------
-
-      startTwoMinuteTimer();
-
-      // ----------------------------------------------------
-      // START PYTHON AGENT
-      // ----------------------------------------------------
-
-      await startAgentSession(
-        callId,
-        session.access_token
-      );
-
-    } catch (error) {
-      console.error(
-        "Free teacher start error:",
-        error
-      );
-
-      if (mountedRef.current) {
-        setAgentStatus("failed");
-        setMode("error");
-      }
-    }
+        conversationStyle,
+      },
+    });
   }
 
   // ============================================================
-  // TWO MINUTE TIMER
+  // SKIA BACKGROUND (Matches shop.tsx / profile.tsx)
   // ============================================================
 
-  function startTwoMinuteTimer() {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
+  const SkiaBg = () => (
+    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Rect x={0} y={0} width={width} height={height}>
+        <LinearGradient
+          start={vec(0, 0)}
+          end={vec(width, height)}
+          colors={["#F5F2FF", "#F0EDFF", "#F8F8FF", "#EEF9F7"]}
+        />
+      </Rect>
 
-    setSecondsLeft(MAX_CALL_SECONDS);
+      <Circle
+        cx={width * 0.88}
+        cy={height * 0.13}
+        r={width * 0.57}
+        color="rgba(111,82,245,0.14)"
+      />
 
-    const startedAt = Date.now();
+      <Circle
+        cx={-width * 0.05}
+        cy={height * 0.78}
+        r={width * 0.55}
+        color="rgba(61,205,226,0.13)"
+      />
 
-    timerRef.current = setInterval(() => {
-      const elapsed = Math.floor(
-        (Date.now() - startedAt) / 1000
-      );
-
-      const remaining =
-        Math.max(
-          0,
-          MAX_CALL_SECONDS - elapsed
-        );
-
-      if (mountedRef.current) {
-        setSecondsLeft(remaining);
-      }
-
-      if (remaining <= 0) {
-        if (timerRef.current) {
-          clearInterval(
-            timerRef.current
-          );
-          timerRef.current = null;
-        }
-
-        endCall(
-          "Your 2-minute free teacher session is complete."
-        );
-      }
-    }, 250);
-  }
-
-  // ============================================================
-  // AGENT SESSION
-  // ============================================================
-
-  async function startAgentSession(
-    callId: string,
-    accessToken: string
-  ) {
-    try {
-      setAgentStatus("connecting");
-
-      const response =
-        await fetch(
-          `${API_URL}/api/agent-session`,
-          {
-            method: "POST",
-            headers: {
-              Authorization:
-                `Bearer ${accessToken}`,
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              callId,
-              callType: "default",
-            }),
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ??
-          "Agent session failed"
-        );
-      }
-
-      agentSessionRef.current =
-        data.session_id ?? null;
-
-      if (mountedRef.current) {
-        setAgentStatus("connected");
-      }
-
-    } catch (error) {
-      console.error(
-        "Free teacher agent error:",
-        error
-      );
-
-      if (mountedRef.current) {
-        setAgentStatus("failed");
-      }
-    }
-  }
-
-  // ============================================================
-  // END CALL
-  // ============================================================
-
-  const endCall = useCallback(
-    async (reason?: string) => {
-      if (leavingRef.current) {
-        return;
-      }
-
-      leavingRef.current = true;
-
-      if (reason) {
-        setEndedReason(reason);
-      }
-
-      if (timerRef.current) {
-        clearInterval(
-          timerRef.current
-        );
-        timerRef.current = null;
-      }
-
-      await stopAgentSession();
-
-      const activeCall =
-        callRef.current;
-
-      const activeClient =
-        clientRef.current;
-
-      try {
-        if (activeCall) {
-          await activeCall.leave();
-        }
-      } catch (error) {
-        console.warn(
-          "Failed to leave call:",
-          error
-        );
-      }
-
-      try {
-        if (activeClient) {
-          await activeClient.disconnectUser();
-        }
-      } catch (error) {
-        console.warn(
-          "Failed to disconnect Stream:",
-          error
-        );
-      }
-
-      callRef.current = null;
-      clientRef.current = null;
-      agentSessionRef.current = null;
-
-      if (mountedRef.current) {
-        setClient(null);
-        setCall(null);
-        setMode("ended");
-      }
-    },
-    []
+      <Circle
+        cx={width * 0.8}
+        cy={height * 0.94}
+        r={width * 0.46}
+        color="rgba(112,87,245,0.10)"
+      />
+    </Canvas>
   );
 
-  // ============================================================
-  // STOP AGENT
-  // ============================================================
+  return (
+    <View style={styles.screen}>
+      <SkiaBg />
 
-  async function stopAgentSession() {
-    const activeCall =
-      callRef.current;
-
-    const sessionId =
-      agentSessionRef.current;
-
-    if (!activeCall || !sessionId) {
-      return;
-    }
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
-        return;
-      }
-
-      await fetch(
-        `${API_URL}/api/agent-session` +
-        `?callId=${encodeURIComponent(
-          activeCall.id
-        )}` +
-        `&sessionId=${encodeURIComponent(
-          sessionId
-        )}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization:
-              `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-    } catch (error) {
-      console.warn(
-        "Failed to stop agent:",
-        error
-      );
-    }
-  }
-
-  // ============================================================
-  // CLEANUP
-  // ============================================================
-
-  async function cleanup() {
-    if (timerRef.current) {
-      clearInterval(
-        timerRef.current
-      );
-      timerRef.current = null;
-    }
-
-    const activeCall =
-      callRef.current;
-
-    const activeClient =
-      clientRef.current;
-
-    try {
-      await stopAgentSession();
-    } catch { }
-
-    try {
-      if (activeCall) {
-        await activeCall.leave();
-      }
-    } catch { }
-
-    try {
-      if (activeClient) {
-        await activeClient.disconnectUser();
-      }
-    } catch { }
-
-    callRef.current = null;
-    clientRef.current = null;
-    agentSessionRef.current = null;
-  }
-
-  // ============================================================
-  // FORMAT TIMER
-  // ============================================================
-
-  function formatTime(seconds: number) {
-    const minutes =
-      Math.floor(seconds / 60);
-
-    const secs =
-      seconds % 60;
-
-    return `${minutes}:${String(secs).padStart(2, "0")}`;
-  }
-
-  // ============================================================
-  // SETUP UI
-  // ============================================================
-
-  if (mode === "setup") {
-    return (
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Top Header */}
         <View style={styles.header}>
+          <View style={styles.headerTitleRow}>
+            <View style={styles.headerIconPod}>
+              <Ionicons name="school" size={20} color={COLORS.purple} />
+            </View>
 
-          <Text
-            style={styles.headerTitle}
-          >
-            AI Teacher
-          </Text>
+            <View>
+              <Text style={styles.headerTitle}>AI Teacher</Text>
+              <Text style={styles.headerSubtitle}>Live English Practice</Text>
+            </View>
+          </View>
 
-          <View style={styles.headerTimer}>
-            <Ionicons
-              name="time-outline"
-              size={17}
-              color={colors.primary.purple}
-            />
-
-            <Text
-              style={styles.headerTimerText}
-            >
-              2:00
-            </Text>
+          <View style={styles.headerTimerPill}>
+            <Ionicons name="time-outline" size={14} color={COLORS.purple} />
+            <Text style={styles.headerTimerText}>2:00 Limit</Text>
           </View>
         </View>
 
-        <View style={styles.setupContainer}>
-          <Image
-            source={mascotImage}
-            contentFit="contain"
-            style={styles.setupMascot}
-          />
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Mascot Hero */}
+          <View style={styles.mascotHero}>
+            <View style={styles.mascotGlow} />
+            <Image
+              source={mascotImage}
+              contentFit="contain"
+              style={styles.setupMascot}
+            />
+          </View>
 
-          <Text style={styles.title}>
-            What do you want to learn?
+          <Text style={styles.setupTitle}>
+            What do you want to{"\n"}practice today?
+          </Text>
+          <Text style={styles.setupSubtitle}>
+            Configure your AI Teacher and start an immersive live session.
           </Text>
 
-          <Text style={styles.subtitle}>
-            Choose a topic or goal and your AI
-            Teacher will practice with you.
-          </Text>
+          {/* Quick Preset Scenarios */}
+          <View style={styles.sectionHeaderRow}>
+            <Ionicons name="sparkles" size={16} color={COLORS.purple} />
+            <Text style={styles.sectionHeaderTitle}>Quick Scenarios</Text>
+          </View>
 
-          <Text style={styles.label}>
-            Topic
-          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.presetsContainer}
+          >
+            {PRESET_SCENARIOS.map((preset) => {
+              const isSelected = selectedPresetId === preset.id;
+              return (
+                <TouchableOpacity
+                  key={preset.id}
+                  activeOpacity={0.8}
+                  onPress={() => applyPreset(preset)}
+                  style={[
+                    styles.presetCard,
+                    isSelected && styles.presetCardSelected,
+                  ]}
+                >
+                  <View pointerEvents="none" style={styles.glassTopHighlight} />
+                  <View style={styles.presetTopRow}>
+                    <View
+                      style={[
+                        styles.presetIconPod,
+                        isSelected && styles.presetIconPodSelected,
+                      ]}
+                    >
+                      <Ionicons
+                        name={preset.icon}
+                        size={16}
+                        color={isSelected ? COLORS.white : COLORS.purple}
+                      />
+                    </View>
+                    <View style={styles.presetBadge}>
+                      <Text style={styles.presetBadgeText}>{preset.badge}</Text>
+                    </View>
+                  </View>
 
-          <TextInput
-            value={topic}
-            onChangeText={setTopic}
-            placeholder="e.g. Travel, cricket, daily life"
-            placeholderTextColor="#999"
-            style={styles.input}
-          />
+                  <Text
+                    style={[
+                      styles.presetTitle,
+                      isSelected && styles.presetTitleSelected,
+                    ]}
+                  >
+                    {preset.title}
+                  </Text>
+                  <Text style={styles.presetGoalText} numberOfLines={2}>
+                    {preset.goal}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-          <Text style={styles.label}>
-            Learning goal
-          </Text>
+          {/* Topic Field */}
+          <Text style={styles.glassLabel}>Topic</Text>
+          <View
+            style={[
+              styles.glassInputWrap,
+              focusedInput === "topic" && styles.glassInputWrapFocused,
+            ]}
+          >
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={18}
+              color={focusedInput === "topic" ? COLORS.purple : COLORS.textMuted}
+            />
+            <TextInput
+              value={topic}
+              onChangeText={(text) => {
+                setTopic(text);
+                setSelectedPresetId(null);
+              }}
+              onFocus={() => setFocusedInput("topic")}
+              onBlur={() => setFocusedInput(null)}
+              placeholder="e.g. Travel, cricket, daily life"
+              placeholderTextColor={COLORS.textMuted}
+              style={styles.glassInput}
+            />
+            {topic.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setTopic("");
+                  setSelectedPresetId(null);
+                }}
+              >
+                <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
 
-          <TextInput
-            value={goal}
-            onChangeText={setGoal}
-            placeholder="e.g. Speak confidently"
-            placeholderTextColor="#999"
-            style={styles.input}
-          />
+          {/* Goal Field */}
+          <Text style={styles.glassLabel}>Learning Goal</Text>
+          <View
+            style={[
+              styles.glassInputWrap,
+              focusedInput === "goal" && styles.glassInputWrapFocused,
+            ]}
+          >
+            <Ionicons
+              name="flag-outline"
+              size={18}
+              color={focusedInput === "goal" ? COLORS.purple : COLORS.textMuted}
+            />
+            <TextInput
+              value={goal}
+              onChangeText={(text) => {
+                setGoal(text);
+                setSelectedPresetId(null);
+              }}
+              onFocus={() => setFocusedInput("goal")}
+              onBlur={() => setFocusedInput(null)}
+              placeholder="e.g. Speak confidently with fluent vocabulary"
+              placeholderTextColor={COLORS.textMuted}
+              style={styles.glassInput}
+            />
+            {goal.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setGoal("");
+                  setSelectedPresetId(null);
+                }}
+              >
+                <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
 
-          <Text style={styles.label}>
-            Difficulty
-          </Text>
-
+          {/* Difficulty Level */}
+          <Text style={styles.glassLabel}>Difficulty Level</Text>
           <View style={styles.optionRow}>
             {(
               [
-                "beginner",
-                "intermediate",
-                "advanced",
-              ] as Difficulty[]
+                { key: "beginner" as Difficulty, icon: "leaf-outline", label: "Beginner" },
+                { key: "intermediate" as Difficulty, icon: "flash-outline", label: "Intermediate" },
+                { key: "advanced" as Difficulty, icon: "rocket-outline", label: "Advanced" },
+              ]
             ).map((item) => (
-              <ChoiceButton
-                key={item}
-                label={
-                  item[0].toUpperCase() +
-                  item.slice(1)
-                }
-                active={
-                  difficulty === item
-                }
-                onPress={() =>
-                  setDifficulty(item)
-                }
-              />
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.8}
+                onPress={() => setDifficulty(item.key)}
+                style={[
+                  styles.difficultyChip,
+                  difficulty === item.key && styles.difficultyChipActive,
+                ]}
+              >
+                <Ionicons
+                  name={item.icon as any}
+                  size={14}
+                  color={difficulty === item.key ? COLORS.purple : COLORS.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.difficultyChipText,
+                    difficulty === item.key && styles.difficultyChipTextActive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
             ))}
           </View>
 
-          <Text style={styles.label}>
-            Practice style
-          </Text>
-
-          <View style={styles.optionWrap}>
-            <ChoiceButton
-              label="Guided"
-              active={
-                conversationStyle ===
-                "guided_conversation"
-              }
-              onPress={() =>
-                setConversationStyle(
-                  "guided_conversation"
-                )
-              }
-            />
-
-            <ChoiceButton
-              label="Free Talk"
-              active={
-                conversationStyle ===
-                "free_conversation"
-              }
-              onPress={() =>
-                setConversationStyle(
-                  "free_conversation"
-                )
-              }
-            />
-
-            <ChoiceButton
-              label="Role-play"
-              active={
-                conversationStyle ===
-                "roleplay"
-              }
-              onPress={() =>
-                setConversationStyle(
-                  "roleplay"
-                )
-              }
-            />
-
-            <ChoiceButton
-              label="Q&A"
-              active={
-                conversationStyle ===
-                "question_answer"
-              }
-              onPress={() =>
-                setConversationStyle(
-                  "question_answer"
-                )
-              }
-            />
-          </View>
-
-          <View style={styles.educationNotice}>
-            <Ionicons
-              name="school-outline"
-              size={20}
-              color={colors.primary.purple}
-            />
-
-            <Text
-              style={styles.educationText}
-            >
-              Education only: language learning,
-              conversation, grammar, vocabulary and
-              educational role-play.
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={startFreeTeacher}
-          >
-            <Ionicons
-              name="mic-outline"
-              size={22}
-              color="#FFFFFF"
-            />
-
-            <Text
-              style={styles.startButtonText}
-            >
-              Start AI Teacher
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ============================================================
-  // ENDED
-  // ============================================================
-
-  if (mode === "ended") {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.endedContainer}>
-          <Image
-            source={mascotImage}
-            contentFit="contain"
-            style={styles.endedMascot}
-          />
-
-          <Text style={styles.endedTitle}>
-            Session complete
-          </Text>
-
-          <Text
-            style={styles.endedText}
-          >
-            {endedReason ??
-              "Great work! Your AI Teacher session has ended."}
-          </Text>
-
-          <Text
-            style={styles.timeUsed}
-          >
-            Session limit: 2:00
-          </Text>
-
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={() => {
-              leavingRef.current = false;
-              setEndedReason(null);
-              setSecondsLeft(
-                MAX_CALL_SECONDS
-              );
-              setAgentStatus("idle");
-              setMode("setup");
-            }}
-          >
-            <Ionicons
-              name="refresh-outline"
-              size={21}
-              color="#FFFFFF"
-            />
-
-            <Text
-              style={styles.startButtonText}
-            >
-              Start Another Session
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() =>
-              router.back()
-            }
-          >
-            <Text
-              style={styles.secondaryButtonText}
-            >
-              Go Back
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ============================================================
-  // ERROR
-  // ============================================================
-
-  if (mode === "error") {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.center}>
-          <Ionicons
-            name="warning-outline"
-            size={50}
-            color={colors.danger}
-          />
-
-          <Text
-            style={styles.errorTitle}
-          >
-            Teacher unavailable
-          </Text>
-
-          <Text
-            style={styles.endedText}
-          >
-            We could not start your AI Teacher.
-          </Text>
-
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={() => {
-              leavingRef.current = false;
-              setAgentStatus("idle");
-              setMode("setup");
-            }}
-          >
-            <Text
-              style={styles.startButtonText}
-            >
-              Try Again
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ============================================================
-  // CONNECTING / ACTIVE CALL
-  // ============================================================
-
-  if (!client || !call) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.center}>
-          <ActivityIndicator
-            size="large"
-            color={colors.primary.purple}
-          />
-
-          <Text style={styles.loadingTitle}>
-            Your AI Teacher is joining...
-          </Text>
-
-          <Text style={styles.endedText}>
-            Preparing your 2-minute session
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() =>
-            endCall("You ended the session.")
-          }
-        >
-          <Ionicons
-            name="chevron-back"
-            size={25}
-            color={colors.text}
-          />
-        </TouchableOpacity>
-
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>
-            AI Teacher
-          </Text>
-
-          <View style={styles.liveRow}>
-            <View
-              style={[
-                styles.liveDot,
+          {/* Practice Style Grid */}
+          <Text style={styles.glassLabel}>Practice Style</Text>
+          <View style={styles.styleGrid}>
+            {(
+              [
                 {
-                  backgroundColor:
-                    agentStatus ===
-                      "connected"
-                      ? colors.success
-                      : colors.primary.purple,
+                  key: "guided_conversation" as ConversationStyle,
+                  icon: "compass-outline",
+                  label: "Guided",
+                  desc: "Step-by-step topic assistance",
                 },
-              ]}
-            />
-
-            <Text
-              style={styles.liveText}
-            >
-              {agentStatus ===
-                "connected"
-                ? "Teacher ready"
-                : "Connecting..."}
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.timerPill,
-            secondsLeft <= 20 &&
-            styles.timerPillWarning,
-          ]}
-        >
-          <Ionicons
-            name="time-outline"
-            size={17}
-            color={
-              secondsLeft <= 20
-                ? colors.danger
-                : colors.primary.purple
-            }
-          />
-
-          <Text
-            style={[
-              styles.timerText,
-              secondsLeft <= 20 &&
-              styles.timerTextWarning,
-            ]}
-          >
-            {formatTime(secondsLeft)}
-          </Text>
-        </View>
-      </View>
-
-      <StreamVideo client={client}>
-        <StreamCall call={call}>
-          <FreeTeacherCallContent
-            call={call}
-            agentStatus={agentStatus}
-            secondsLeft={secondsLeft}
-            onLeave={() =>
-              endCall(
-                "You ended the session."
-              )
-            }
-            onRetry={async () => {
-              const {
-                data: {
-                  session,
+                {
+                  key: "free_conversation" as ConversationStyle,
+                  icon: "mic-outline",
+                  label: "Free Talk",
+                  desc: "Open-ended natural dialogue",
                 },
-              } =
-                await supabase.auth.getSession();
-
-              if (
-                session?.access_token &&
-                callRef.current
-              ) {
-                await startAgentSession(
-                  callRef.current.id,
-                  session.access_token
-                );
-              }
-            }}
-          />
-        </StreamCall>
-      </StreamVideo>
-    </SafeAreaView>
-  );
-}
-
-
-// ============================================================
-// CALL CONTENT
-// ============================================================
-
-function FreeTeacherCallContent({
-  call,
-  agentStatus,
-  secondsLeft,
-  onLeave,
-  onRetry,
-}: {
-  call: Call;
-  agentStatus:
-  | "idle"
-  | "connecting"
-  | "connected"
-  | "failed";
-  secondsLeft: number;
-  onLeave: () => void;
-  onRetry: () => void;
-}) {
-  const {
-    useMicrophoneState,
-    useCallClosedCaptions,
-  } = useCallStateHooks();
-
-  const { microphone } =
-    useMicrophoneState();
-
-  const captions =
-    useCallClosedCaptions();
-
-  const [isHeld, setIsHeld] =
-    useState(false);
-
-  const [partial, setPartial] =
-    useState<PartialCaption | null>(null);
-
-  const partialTimerRef =
-    useRef<ReturnType<typeof setTimeout> | null>(
-      null
-    );
-
-  // ------------------------------------------------------------
-  // CALL EVENTS
-  // ------------------------------------------------------------
-
-  useEffect(() => {
-    const unsubscribeCustom =
-      call.on(
-        "custom",
-        (event: any) => {
-          const data =
-            event?.custom ??
-            event?.data ??
-            event ??
-            {};
-
-          if (
-            data.type === "end_call" ||
-            data.type === "session_timeout" ||
-            event?.type === "end_call"
-          ) {
-            onLeave();
-            return;
-          }
-
-          if (
-            data.type ===
-            "transcript_partial" &&
-            data.text
-          ) {
-            setPartial({
-              speaker:
-                data.speaker ??
-                "agent",
-              text: data.text,
-            });
-
-            if (
-              partialTimerRef.current
-            ) {
-              clearTimeout(
-                partialTimerRef.current
-              );
-            }
-
-            partialTimerRef.current =
-              setTimeout(() => {
-                setPartial(null);
-              }, 3000);
-          }
-        }
-      );
-
-    const unsubscribeEnded =
-      call.on(
-        "call.session_ended",
-        () => {
-          onLeave();
-        }
-      );
-
-    return () => {
-      unsubscribeCustom();
-      unsubscribeEnded();
-
-      if (
-        partialTimerRef.current
-      ) {
-        clearTimeout(
-          partialTimerRef.current
-        );
-      }
-    };
-  }, [call, onLeave]);
-
-  // ------------------------------------------------------------
-  // PUSH TO TALK
-  // ------------------------------------------------------------
-
-  const isReady =
-    agentStatus === "connected";
-
-  function handlePressIn() {
-    if (!isReady) return;
-
-    setIsHeld(true);
-
-    microphone.enable();
-  }
-
-  function handlePressOut() {
-    setIsHeld(false);
-
-    microphone.disable();
-  }
-
-  // ------------------------------------------------------------
-  // CAPTIONS
-  // ------------------------------------------------------------
-
-  const recentCaptions =
-    captions.slice(-4);
-
-  return (
-    <View style={styles.callContent}>
-      <View style={styles.callArea}>
-        <Image
-          source={mascotImage}
-          contentFit="contain"
-          style={styles.mascot}
-        />
-
-        <View
-          style={
-            styles.sessionBadge
-          }
-        >
-          <Ionicons
-            name="school-outline"
-            size={15}
-            color={
-              colors.primary.purple
-            }
-          />
-
-          <Text
-            style={
-              styles.sessionBadgeText
-            }
-          >
-            English Practice
-          </Text>
-        </View>
-
-        <View
-          style={styles.captionsContainer}
-        >
-          {recentCaptions.map(
-            (
-              caption: CallClosedCaption,
-              index
-            ) => {
-              const isTeacher =
-                caption.user
-                  ?.id ===
-                AGENT_USER_ID;
-
+                {
+                  key: "roleplay" as ConversationStyle,
+                  icon: "person-outline",
+                  label: "Role-play",
+                  desc: "Simulated scenario practice",
+                },
+                {
+                  key: "question_answer" as ConversationStyle,
+                  icon: "help-circle-outline",
+                  label: "Q&A Mode",
+                  desc: "Test your comprehension",
+                },
+              ]
+            ).map((item) => {
+              const isSelected = conversationStyle === item.key;
               return (
-                <CaptionBubble
-                  key={`${caption.start_time}-${index}`}
-                  speaker={
-                    isTeacher
-                      ? "agent"
-                      : "user"
-                  }
-                  text={
-                    caption.text
-                  }
-                />
-              );
-            }
-          )}
-
-          {partial && (
-            <CaptionBubble
-              speaker={
-                partial.speaker
-              }
-              text={partial.text}
-              partial
-            />
-          )}
-
-          {recentCaptions.length === 0 &&
-            !partial && (
-              <View
-                style={
-                  styles.responseBubble
-                }
-              >
-                {agentStatus ===
-                  "connecting" && (
-                    <ActivityIndicator
-                      size="small"
-                      color={
-                        colors.primary
-                          .purple
-                      }
-                    />
-                  )}
-
-                <View
-                  style={
-                    styles.responseTextContainer
-                  }
+                <TouchableOpacity
+                  key={item.key}
+                  activeOpacity={0.8}
+                  onPress={() => setConversationStyle(item.key)}
+                  style={[
+                    styles.styleCard,
+                    isSelected && styles.styleCardActive,
+                  ]}
                 >
-                  <Text
-                    style={
-                      styles.responsePrimary
-                    }
+                  <View pointerEvents="none" style={styles.glassTopHighlight} />
+                  <View
+                    style={[
+                      styles.styleIconPod,
+                      isSelected && styles.styleIconPodActive,
+                    ]}
                   >
-                    {agentStatus ===
-                      "connected"
-                      ? "Your AI Teacher is ready!"
-                      : "Connecting to your teacher..."}
-                  </Text>
-
+                    <Ionicons
+                      name={item.icon as any}
+                      size={20}
+                      color={isSelected ? COLORS.white : COLORS.purple}
+                    />
+                  </View>
                   <Text
-                    style={
-                      styles.responseSecondary
-                    }
+                    style={[
+                      styles.styleCardLabel,
+                      isSelected && styles.styleCardLabelActive,
+                    ]}
                   >
-                    {agentStatus ===
-                      "connected"
-                      ? "Hold the mic and start speaking."
-                      : "Please wait..."}
+                    {item.label}
                   </Text>
-                </View>
-
-                {agentStatus ===
-                  "failed" && (
-                    <TouchableOpacity
-                      style={
-                        styles.retryButton
-                      }
-                      onPress={
-                        onRetry
-                      }
-                    >
-                      <Ionicons
-                        name="refresh-outline"
-                        size={20}
-                        color={
-                          colors.primary
-                            .purple
-                        }
-                      />
-                    </TouchableOpacity>
-                  )}
-              </View>
-            )}
-        </View>
-
-        <View
-          style={styles.remainingBadge}
-        >
-          <Text
-            style={
-              styles.remainingLabel
-            }
-          >
-            Session time
-          </Text>
-
-          <Text
-            style={
-              styles.remainingValue
-            }
-          >
-            {formatRemaining(
-              secondsLeft
-            )}
-          </Text>
-        </View>
-      </View>
-
-      <View
-        style={
-          styles.pushToTalkSection
-        }
-      >
-        <Pressable
-          onPressIn={
-            handlePressIn
-          }
-          onPressOut={
-            handlePressOut
-          }
-          disabled={!isReady}
-          style={[
-            styles.micOuter,
-            isHeld &&
-            styles.micOuterActive,
-          ]}
-        >
-          <View
-            style={[
-              styles.micButton,
-              isHeld &&
-              styles.micButtonActive,
-              !isReady &&
-              styles.micButtonDisabled,
-            ]}
-          >
-            {agentStatus ===
-              "connecting" ? (
-              <ActivityIndicator
-                size="small"
-                color={
-                  colors.primary
-                    .purple
-                }
-              />
-            ) : (
-              <Ionicons
-                name={
-                  isHeld
-                    ? "mic"
-                    : "mic-outline"
-                }
-                size={36}
-                color={
-                  isHeld
-                    ? "#FFFFFF"
-                    : colors.text
-                }
-              />
-            )}
+                  <Text style={styles.styleCardDesc}>{item.desc}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        </Pressable>
 
-        <Text
-          style={[
-            styles.pushLabel,
-            isHeld &&
-            styles.pushLabelActive,
-          ]}
-        >
-          {isHeld
-            ? "Listening..."
-            : isReady
-              ? "Push & hold to speak"
-              : "Waiting for teacher..."}
-        </Text>
+          {/* Education Notice */}
+          <View style={styles.educationNotice}>
+            <View style={styles.educationIconPod}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={16}
+                color={COLORS.purple}
+              />
+            </View>
+            <Text style={styles.educationText}>
+              Educational only: language learning, vocabulary, grammar, and educational role-play scenarios.
+            </Text>
+          </View>
 
-        <TouchableOpacity
-          style={
-            styles.endButton
-          }
-          onPress={onLeave}
-        >
-          <Ionicons
-            name="call"
-            size={20}
-            color="#FFFFFF"
-            style={{
-              transform: [
-                {
-                  rotate: "135deg",
-                },
-              ],
-            }}
-          />
-
-          <Text
-            style={
-              styles.endButtonText
-            }
+          {/* Start CTA Button */}
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={handleStart}
+            activeOpacity={0.85}
           >
-            End
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <View style={styles.startButtonInner}>
+              <Ionicons name="mic" size={20} color={COLORS.white} />
+              <Text style={styles.startButtonText}>Start AI Teacher Session</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </SafeAreaView>
     </View>
   );
 }
-
-
-// ============================================================
-// CHOICE BUTTON
-// ============================================================
-
-function ChoiceButton({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        styles.choiceButton,
-        active &&
-        styles.choiceButtonActive,
-      ]}
-    >
-      <Text
-        style={[
-          styles.choiceText,
-          active &&
-          styles.choiceTextActive,
-        ]}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-
-// ============================================================
-// CAPTION
-// ============================================================
-
-function CaptionBubble({
-  speaker,
-  text,
-  partial = false,
-}: {
-  speaker: "agent" | "user";
-  text: string;
-  partial?: boolean;
-}) {
-  const isTeacher =
-    speaker === "agent";
-
-  return (
-    <View
-      style={[
-        styles.captionBubble,
-        isTeacher
-          ? styles.teacherBubble
-          : styles.userBubble,
-        partial &&
-        styles.partialBubble,
-      ]}
-    >
-      <Text
-        style={[
-          styles.captionSpeaker,
-          isTeacher
-            ? styles.teacherSpeaker
-            : styles.userSpeaker,
-        ]}
-      >
-        {isTeacher
-          ? "AI Teacher"
-          : "You"}
-      </Text>
-
-      <Text
-        style={[
-          styles.captionText,
-          isTeacher
-            ? styles.teacherText
-            : styles.userText,
-        ]}
-      >
-        {text}
-      </Text>
-    </View>
-  );
-}
-
-
-function formatRemaining(
-  seconds: number
-) {
-  const minutes =
-    Math.floor(seconds / 60);
-
-  const secs =
-    seconds % 60;
-
-  return `${minutes}:${String(secs).padStart(2, "0")}`;
-}
-
 
 // ============================================================
 // STYLES
@@ -1549,503 +504,325 @@ function formatRemaining(
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: COLORS.background,
   },
-
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 30,
-  },
-
   header: {
-    height: 68,
-    paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
-
-  headerCenter: {
-    flex: 1,
+  headerTitleRow: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 12,
   },
-
+  headerIconPod: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "rgba(104,71,245,0.08)",
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   headerTitle: {
     fontFamily: "Poppins-SemiBold",
     fontSize: 18,
-    color: colors.text,
+    color: COLORS.text,
+    lineHeight: 22,
   },
-
-  headerTimer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-
-  headerTimerText: {
-    fontFamily: "Poppins-SemiBold",
-    color: colors.primary.purple,
-    fontSize: 14,
-  },
-
-  liveRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 1,
-  },
-
-  liveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-
-  liveText: {
+  headerSubtitle: {
     fontFamily: "Poppins-Regular",
-    fontSize: 11,
-    color: colors.secondary,
+    fontSize: 12,
+    color: COLORS.textSecondary,
   },
-
-  timerPill: {
-    minWidth: 68,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: "#F3F0FF",
+  headerTimerPill: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: COLORS.glassBg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  headerTimerText: {
+    fontFamily: "Poppins-Medium",
+    fontSize: 12,
+    color: COLORS.purple,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 30,
+  },
+  mascotHero: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    marginVertical: 8,
   },
-
-  timerPillWarning: {
-    backgroundColor: "#FFF0F0",
+  mascotGlow: {
+    position: "absolute",
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(104,71,245,0.12)",
   },
-
-  timerText: {
-    fontFamily: "Poppins-SemiBold",
-    color: colors.primary.purple,
-    fontSize: 14,
-  },
-
-  timerTextWarning: {
-    color: colors.danger,
-  },
-
-  setupContainer: {
-    flex: 1,
-    paddingHorizontal: 22,
-    paddingTop: 14,
-  },
-
   setupMascot: {
-    height: 115,
-    width: "100%",
-    marginBottom: 4,
+    width: 120,
+    height: 120,
   },
-
-  title: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 25,
-    color: colors.text,
-    marginTop: 5,
+  setupTitle: {
+    fontFamily: "Poppins-Bold",
+    fontSize: 23,
+    color: COLORS.text,
+    textAlign: "center",
+    marginTop: 4,
   },
-
-  subtitle: {
+  setupSubtitle: {
     fontFamily: "Poppins-Regular",
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    marginTop: 4,
+    marginBottom: 18,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  sectionHeaderTitle: {
+    fontFamily: "Poppins-SemiBold",
     fontSize: 14,
-    lineHeight: 21,
-    color: colors.secondary,
-    marginTop: 5,
-    marginBottom: 15,
+    color: COLORS.text,
   },
-
-  label: {
+  presetsContainer: {
+    gap: 10,
+    paddingRight: 20,
+    marginBottom: 16,
+  },
+  glassTopHighlight: {
+    position: "absolute",
+    top: 0,
+    left: 12,
+    right: 12,
+    height: 1,
+    backgroundColor: COLORS.glassTopHighlight,
+  },
+  presetCard: {
+    width: 150,
+    backgroundColor: COLORS.glassBg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderRadius: 18,
+    padding: 12,
+    position: "relative",
+    overflow: "hidden",
+  },
+  presetCardSelected: {
+    backgroundColor: COLORS.glassBgSelected,
+    borderColor: COLORS.purple,
+  },
+  presetTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  presetIconPod: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(104,71,245,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  presetIconPodSelected: {
+    backgroundColor: COLORS.purple,
+  },
+  presetBadge: {
+    backgroundColor: "rgba(104,71,245,0.06)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  presetBadgeText: {
+    fontFamily: "Poppins-Medium",
+    fontSize: 10,
+    color: COLORS.purple,
+  },
+  presetTitle: {
     fontFamily: "Poppins-SemiBold",
     fontSize: 13,
-    color: colors.text,
-    marginBottom: 7,
-    marginTop: 5,
+    color: COLORS.text,
+    marginBottom: 2,
   },
-
-  input: {
-    height: 48,
-    borderRadius: 14,
+  presetTitleSelected: {
+    color: COLORS.purple,
+  },
+  presetGoalText: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    lineHeight: 15,
+  },
+  glassLabel: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 14,
+    color: COLORS.text,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  glassInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.glassBg,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: "#FAFAFA",
+    borderColor: COLORS.glassBorder,
+    borderRadius: 16,
     paddingHorizontal: 14,
+    height: 52,
+  },
+  glassInputWrapFocused: {
+    borderColor: COLORS.purple,
+    backgroundColor: COLORS.glassBgSelected,
+  },
+  glassInput: {
+    flex: 1,
+    marginLeft: 10,
+    marginRight: 6,
     fontFamily: "Poppins-Regular",
     fontSize: 13,
-    color: colors.text,
-    marginBottom: 7,
+    color: COLORS.text,
   },
-
   optionRow: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 7,
   },
-
-  optionWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-
-  choiceButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 18,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    backgroundColor: "#FFFFFF",
-  },
-
-  choiceButtonActive: {
-    borderColor: colors.primary.purple,
-    backgroundColor: "#F1EDFF",
-  },
-
-  choiceText: {
-    fontFamily: "Poppins-Medium",
-    fontSize: 12,
-    color: colors.secondary,
-  },
-
-  choiceTextActive: {
-    color: colors.primary.purple,
-  },
-
-  educationNotice: {
-    marginTop: 13,
+  difficultyChip: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 9,
-    padding: 11,
-    borderRadius: 14,
-    backgroundColor: "#F5F3FF",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: COLORS.glassBg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
-
+  difficultyChipActive: {
+    backgroundColor: COLORS.glassBgSelected,
+    borderColor: COLORS.purple,
+  },
+  difficultyChipText: {
+    fontFamily: "Poppins-Medium",
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  difficultyChipTextActive: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 12,
+    color: COLORS.purple,
+  },
+  styleGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  styleCard: {
+    width: "48%",
+    backgroundColor: COLORS.glassBg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderRadius: 16,
+    padding: 12,
+    position: "relative",
+    overflow: "hidden",
+  },
+  styleCardActive: {
+    backgroundColor: COLORS.glassBgSelected,
+    borderColor: COLORS.purple,
+  },
+  styleIconPod: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(104,71,245,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  styleIconPodActive: {
+    backgroundColor: COLORS.purple,
+  },
+  styleCardLabel: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 13,
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  styleCardLabelActive: {
+    color: COLORS.purple,
+  },
+  styleCardDesc: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  educationNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: COLORS.glassBg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 18,
+  },
+  educationIconPod: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(104,71,245,0.10)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   educationText: {
     flex: 1,
     fontFamily: "Poppins-Regular",
     fontSize: 11,
-    lineHeight: 17,
-    color: colors.secondary,
+    lineHeight: 16,
+    color: COLORS.textSecondary,
   },
-
   startButton: {
-    height: 52,
-    marginTop: 14,
-    borderRadius: 16,
-    backgroundColor: colors.primary.purple,
+    marginTop: 22,
+    borderRadius: 20,
+    overflow: "hidden",
+    backgroundColor: COLORS.purple,
+  },
+  startButtonInner: {
+    height: 54,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row",
     gap: 8,
+    paddingHorizontal: 20,
   },
-
   startButtonText: {
     fontFamily: "Poppins-SemiBold",
-    color: "#FFFFFF",
     fontSize: 15,
-  },
-
-  secondaryButton: {
-    height: 48,
-    marginTop: 10,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  secondaryButtonText: {
-    fontFamily: "Poppins-Medium",
-    color: colors.text,
-    fontSize: 14,
-  },
-
-  endedContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 28,
-  },
-
-  endedMascot: {
-    width: 220,
-    height: 190,
-    marginBottom: 10,
-  },
-
-  endedTitle: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 25,
-    color: colors.text,
-  },
-
-  endedText: {
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: "center",
-    color: colors.secondary,
-    marginTop: 8,
-  },
-
-  timeUsed: {
-    fontFamily: "Poppins-Medium",
-    fontSize: 13,
-    color: colors.primary.purple,
-    marginTop: 12,
-  },
-
-  loadingTitle: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 17,
-    color: colors.text,
-    marginTop: 15,
-  },
-
-  errorTitle: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 21,
-    color: colors.text,
-    marginTop: 12,
-  },
-
-  callContent: {
-    flex: 1,
-  },
-
-  callArea: {
-    flex: 1,
-    margin: 16,
-    borderRadius: 24,
-    overflow: "hidden",
-    backgroundColor: "#F4F2FF",
-    position: "relative",
-  },
-
-  mascot: {
-    position: "absolute",
-    top: 20,
-    bottom: 20,
-    left: -25,
-    right: -25,
-  },
-
-  sessionBadge: {
-    position: "absolute",
-    top: 14,
-    left: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-  },
-
-  sessionBadgeText: {
-    fontFamily: "Poppins-Medium",
-    fontSize: 11,
-    color: colors.primary.purple,
-  },
-
-  captionsContainer: {
-    position: "absolute",
-    left: 14,
-    right: 14,
-    bottom: 15,
-    gap: 7,
-  },
-
-  captionBubble: {
-    borderRadius: 14,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  teacherBubble: {
-    backgroundColor: colors.primary.purple,
-  },
-
-  userBubble: {
-    backgroundColor: "#FFFFFF",
-  },
-
-  partialBubble: {
-    opacity: 0.86,
-  },
-
-  captionSpeaker: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 10,
-    marginBottom: 2,
-  },
-
-  teacherSpeaker: {
-    color: "rgba(255,255,255,0.7)",
-  },
-
-  userSpeaker: {
-    color: colors.secondary,
-  },
-
-  captionText: {
-    fontFamily: "Poppins-Regular",
-    fontSize: 13,
-    lineHeight: 18,
-  },
-
-  teacherText: {
-    color: "#FFFFFF",
-  },
-
-  userText: {
-    color: colors.text,
-  },
-
-  responseBubble: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-
-  responseTextContainer: {
-    flex: 1,
-    marginLeft: 10,
-  },
-
-  responsePrimary: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 14,
-    color: colors.text,
-  },
-
-  responseSecondary: {
-    fontFamily: "Poppins-Regular",
-    fontSize: 12,
-    color: colors.secondary,
-    marginTop: 2,
-  },
-
-  retryButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#EEEAFE",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  remainingBadge: {
-    position: "absolute",
-    top: 14,
-    right: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 15,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    alignItems: "center",
-  },
-
-  remainingLabel: {
-    fontFamily: "Poppins-Regular",
-    fontSize: 9,
-    color: colors.secondary,
-  },
-
-  remainingValue: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 13,
-    color: colors.primary.purple,
-  },
-
-  pushToTalkSection: {
-    alignItems: "center",
-    paddingTop: 6,
-    paddingBottom: 18,
-  },
-
-  micOuter: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  micOuterActive: {
-    borderWidth: 3,
-    borderColor: "#C4B5FD",
-    backgroundColor: "#F5F3FF",
-  },
-
-  micButton: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
-  micButtonActive: {
-    backgroundColor: colors.primary.purple,
-  },
-
-  micButtonDisabled: {
-    opacity: 0.5,
-  },
-
-  pushLabel: {
-    fontFamily: "Poppins-Medium",
-    fontSize: 13,
-    color: colors.secondary,
-    marginTop: 4,
-  },
-
-  pushLabelActive: {
-    color: colors.primary.purple,
-  },
-
-  endButton: {
-    height: 42,
-    paddingHorizontal: 20,
-    borderRadius: 21,
-    marginTop: 13,
-    backgroundColor: colors.danger,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-  },
-
-  endButtonText: {
-    fontFamily: "Poppins-SemiBold",
-    color: "#FFFFFF",
-    fontSize: 13,
+    color: COLORS.white,
   },
 });
