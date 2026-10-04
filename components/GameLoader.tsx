@@ -1,38 +1,32 @@
-import React, { useEffect } from "react";
+// components/GameLoader.tsx
+
+import { Ionicons } from "@expo/vector-icons";
+import {
+  Canvas,
+  Circle,
+  LinearGradient,
+  Rect,
+  vec,
+} from "@shopify/react-native-skia";
+import React, { useEffect, useState } from "react";
 import {
   StyleProp,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   ViewStyle,
 } from "react-native";
-
-import { BlurView } from "expo-blur";
-
 import Animated, {
   Easing,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-
-import {
-  Canvas,
-  Circle,
-  LinearGradient,
-  RoundedRect,
-  vec,
-} from "@shopify/react-native-skia";
-
-import {
-  colors,
-  radius,
-  spacing,
-  typography,
-} from "../constant/constant";
 
 import { Mascot } from "./Mascot";
 
@@ -62,24 +56,33 @@ export interface GameLoaderProps {
 }
 
 /* =========================================================
-   CONFIG
+   COLOR PALETTE
 ========================================================= */
 
-const SPRING_DURATION = 900;
+const COLORS = {
+  background: "#F5F2FF",
+  purple: "#6847F5",
+  purpleDark: "#5135D4",
+  text: "#111126",
+  textSecondary: "#626078",
+  textMuted: "#77738C",
+  green: "#16C58B",
+  gold: "#F7B718",
+  cyan: "#3DCDE2",
+  orange: "#FF9600",
+  danger: "#FF4B4B",
+  white: "#FFFFFF",
+};
 
 /* =========================================================
-   GLASS SKELETON CARD
+   GLASS SKELETON CARD (NO BLUR, NO ELEVATION)
 ========================================================= */
 
-const GlassSkeletonCard = ({
-  index,
-}: {
-  index: number;
-}) => {
+const GlassSkeletonCard = ({ index }: { index: number }) => {
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    progress.value = withDelaySafe(
+    progress.value = withDelay(
       index * 90,
       withRepeat(
         withSequence(
@@ -96,136 +99,67 @@ const GlassSkeletonCard = ({
         false
       )
     );
-  }, []);
+  }, [index]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      opacity: interpolate(
-        progress.value,
-        [0, 1],
-        [0.48, 0.9]
-      ),
-
+      opacity: interpolate(progress.value, [0, 1], [0.5, 0.95]),
       transform: [
         {
-          translateY: interpolate(
-            progress.value,
-            [0, 1],
-            [1, -1]
-          ),
+          translateY: interpolate(progress.value, [0, 1], [1, -2]),
         },
       ],
     };
   });
 
   return (
-    <Animated.View
-      style={[
-        styles.skeletonCardWrapper,
-        animatedStyle,
-      ]}
-    >
-      <BlurView
-        intensity={35}
-        tint="light"
-        style={StyleSheet.absoluteFill}
-      />
-
-      <Canvas
-        pointerEvents="none"
-        style={StyleSheet.absoluteFill}
-      >
-        <RoundedRect
-          x={0}
-          y={0}
-          width={380}
-          height={72}
-          r={20}
-        >
-          <LinearGradient
-            start={vec(0, 0)}
-            end={vec(380, 0)}
-            colors={[
-              "rgba(255,255,255,0.22)",
-              "rgba(255,255,255,0.08)",
-            ]}
-          />
-        </RoundedRect>
-      </Canvas>
+    <Animated.View style={[styles.skeletonCardWrapper, animatedStyle]}>
+      {/* Top highlight edge */}
+      <View pointerEvents="none" style={styles.glassTopEdge} />
 
       <View style={styles.skeletonContent}>
+        {/* Placeholder Icon Pod */}
         <View style={styles.skeletonCircle}>
           <View style={styles.skeletonCircleInner} />
         </View>
 
+        {/* Placeholder Text Lines */}
         <View style={styles.skeletonLines}>
-          <View
-            style={[
-              styles.skeletonLine,
-              {
-                width: "62%",
-              },
-            ]}
-          />
-
+          <View style={[styles.skeletonLine, { width: "62%" }]} />
           <View
             style={[
               styles.skeletonLine,
               styles.skeletonSmallLine,
-              {
-                width: "38%",
-              },
+              { width: "38%" },
             ]}
           />
         </View>
 
+        {/* Placeholder Arrow Badge */}
         <View style={styles.skeletonArrow}>
-          <View style={styles.skeletonArrowInner} />
+          <Ionicons
+            name="chevron-forward"
+            size={14}
+            color="rgba(104,71,245,0.30)"
+          />
         </View>
       </View>
-
-      <View
-        pointerEvents="none"
-        style={styles.skeletonBorder}
-      />
     </Animated.View>
   );
 };
 
 /* =========================================================
-   SAFE DELAY HELPER
+   GLASS MESSAGE PILL (NO BLUR, NO ELEVATION)
 ========================================================= */
 
-const withDelaySafe = (
-  delay: number,
-  animation: any
-) => {
-  return require("react-native-reanimated").withDelay(
-    delay,
-    animation
-  );
-};
-
-/* =========================================================
-   GLASS MESSAGE
-========================================================= */
-
-const GlassMessage = ({
-  message,
-}: {
-  message: string;
-}) => {
+const GlassMessage = ({ message }: { message: string }) => {
   const pulse = useSharedValue(0);
 
   useEffect(() => {
     pulse.value = withRepeat(
       withSequence(
-        withTiming(1, {
-          duration: 850,
-        }),
-        withTiming(0, {
-          duration: 850,
-        })
+        withTiming(1, { duration: 850 }),
+        withTiming(0, { duration: 850 })
       ),
       -1,
       false
@@ -234,19 +168,10 @@ const GlassMessage = ({
 
   const dotStyle = useAnimatedStyle(() => {
     return {
-      opacity: interpolate(
-        pulse.value,
-        [0, 1],
-        [0.45, 1]
-      ),
-
+      opacity: interpolate(pulse.value, [0, 1], [0.45, 1]),
       transform: [
         {
-          scale: interpolate(
-            pulse.value,
-            [0, 1],
-            [0.8, 1.2]
-          ),
+          scale: interpolate(pulse.value, [0, 1], [0.85, 1.2]),
         },
       ],
     };
@@ -254,808 +179,403 @@ const GlassMessage = ({
 
   return (
     <View style={styles.messageWrapper}>
-      <BlurView
-        intensity={65}
-        tint="light"
-        style={StyleSheet.absoluteFill}
-      />
-
-      <Canvas
-        pointerEvents="none"
-        style={StyleSheet.absoluteFill}
-      >
-        <RoundedRect
-          x={0}
-          y={0}
-          width={360}
-          height={52}
-          r={26}
-        >
-          <LinearGradient
-            start={vec(0, 0)}
-            end={vec(360, 52)}
-            colors={[
-              "rgba(255,255,255,0.30)",
-              "rgba(255,255,255,0.10)",
-            ]}
-          />
-        </RoundedRect>
-      </Canvas>
+      {/* Top highlight edge */}
+      <View pointerEvents="none" style={styles.glassTopEdge} />
 
       <View style={styles.messageContent}>
+        {/* Glowing Indicator Dots */}
         <View style={styles.dotRow}>
           <Animated.View
             style={[
               styles.glowDot,
-              {
-                backgroundColor: colors.success,
-              },
+              { backgroundColor: COLORS.green },
               dotStyle,
             ]}
           />
-
           <Animated.View
             style={[
               styles.glowDot,
-              {
-                backgroundColor: colors.reward,
-              },
+              { backgroundColor: COLORS.gold },
               dotStyle,
             ]}
           />
-
           <Animated.View
             style={[
               styles.glowDot,
-              {
-                backgroundColor: colors.primary,
-              },
+              { backgroundColor: COLORS.purple },
               dotStyle,
             ]}
           />
         </View>
 
-        <Text style={styles.messageText}>
-          {message}
-        </Text>
+        <Text style={styles.messageText}>{message}</Text>
       </View>
-
-      <View
-        pointerEvents="none"
-        style={styles.messageBorder}
-      />
     </View>
   );
 };
 
 /* =========================================================
-   MAIN LOADER
+   MAIN GAME LOADER COMPONENT
 ========================================================= */
 
-export const GameLoader: React.FC<
-  GameLoaderProps
-> = ({
+export const GameLoader: React.FC<GameLoaderProps> = ({
   message,
   variant = "inline",
   cardCount = 4,
   showMascot = true,
   style,
 }) => {
-    const [tipIndex, setTipIndex] =
-      React.useState(0);
+  const { width, height } = useWindowDimensions();
+  const [tipIndex, setTipIndex] = useState(0);
 
-    /* =======================================================
-       ANIMATION VALUES
-    ======================================================= */
+  /* Animation values */
+  const mascotScale = useSharedValue(1);
+  const mascotFloat = useSharedValue(0);
+  const rotation = useSharedValue(0);
+  const auraPulse = useSharedValue(1);
+  const sparkleOpacity = useSharedValue(0.5);
 
-    const mascotScale = useSharedValue(1);
+  /* Tip Rotation */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTipIndex((prev) => (prev + 1) % GAME_TIPS.length);
+    }, 2400);
 
-    const mascotFloat = useSharedValue(0);
+    return () => clearInterval(interval);
+  }, []);
 
-    const rotation = useSharedValue(0);
-
-    const auraPulse = useSharedValue(1);
-
-    const sparkleOpacity = useSharedValue(0.5);
-
-    /* =======================================================
-       TIP ROTATION
-    ======================================================= */
-
-    useEffect(() => {
-      const interval = setInterval(() => {
-        setTipIndex(
-          (prev) =>
-            (prev + 1) % GAME_TIPS.length
-        );
-      }, 2400);
-
-      return () => clearInterval(interval);
-    }, []);
-
-    /* =======================================================
-       MASCOT ANIMATIONS
-    ======================================================= */
-
-    useEffect(() => {
-      mascotScale.value = withRepeat(
-        withSequence(
-          withTiming(1.06, {
-            duration: 900,
-            easing: Easing.inOut(
-              Easing.ease
-            ),
-          }),
-
-          withTiming(1, {
-            duration: 900,
-            easing: Easing.inOut(
-              Easing.ease
-            ),
-          })
-        ),
-        -1,
-        false
-      );
-
-      mascotFloat.value = withRepeat(
-        withSequence(
-          withTiming(-6, {
-            duration: 1300,
-            easing: Easing.inOut(
-              Easing.ease
-            ),
-          }),
-
-          withTiming(0, {
-            duration: 1300,
-            easing: Easing.inOut(
-              Easing.ease
-            ),
-          })
-        ),
-        -1,
-        false
-      );
-
-      rotation.value = withRepeat(
-        withTiming(1, {
-          duration: 5500,
-          easing: Easing.linear,
+  /* Mascot Animations */
+  useEffect(() => {
+    mascotScale.value = withRepeat(
+      withSequence(
+        withTiming(1.06, {
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
         }),
-        -1,
-        false
-      );
+        withTiming(1, {
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      false
+    );
 
-      auraPulse.value = withRepeat(
-        withSequence(
-          withTiming(1.12, {
-            duration: 1200,
-          }),
+    mascotFloat.value = withRepeat(
+      withSequence(
+        withTiming(-6, {
+          duration: 1300,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(0, {
+          duration: 1300,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      false
+    );
 
-          withTiming(1, {
-            duration: 1200,
-          })
-        ),
-        -1,
-        false
-      );
+    rotation.value = withRepeat(
+      withTiming(1, {
+        duration: 5500,
+        easing: Easing.linear,
+      }),
+      -1,
+      false
+    );
 
-      sparkleOpacity.value = withRepeat(
-        withSequence(
-          withTiming(1, {
-            duration: 800,
-          }),
+    auraPulse.value = withRepeat(
+      withSequence(
+        withTiming(1.12, { duration: 1200 }),
+        withTiming(1, { duration: 1200 })
+      ),
+      -1,
+      false
+    );
 
-          withTiming(0.35, {
-            duration: 800,
-          })
-        ),
-        -1,
-        false
-      );
-    }, []);
+    sparkleOpacity.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 800 }),
+        withTiming(0.35, { duration: 800 })
+      ),
+      -1,
+      false
+    );
+  }, []);
 
-    /* =======================================================
-       MASCOT STYLE
-    ======================================================= */
+  const mascotAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: mascotFloat.value },
+      { scale: mascotScale.value },
+    ],
+  }));
 
-    const mascotAnimatedStyle =
-      useAnimatedStyle(() => {
-        return {
-          transform: [
-            {
-              translateY:
-                mascotFloat.value,
-            },
+  const auraAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(auraPulse.value, [1, 1.12], [0.5, 0.9]),
+    transform: [{ scale: auraPulse.value }],
+  }));
 
-            {
-              scale:
-                mascotScale.value,
-            },
-          ],
-        };
-      });
+  const sparkleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: sparkleOpacity.value,
+    transform: [{ rotate: `${rotation.value * 360}deg` }],
+  }));
 
-    /* =======================================================
-       AURA STYLE
-    ======================================================= */
-
-    const auraAnimatedStyle =
-      useAnimatedStyle(() => {
-        return {
-          opacity: interpolate(
-            auraPulse.value,
-            [1, 1.12],
-            [0.5, 0.9]
-          ),
-
-          transform: [
-            {
-              scale: auraPulse.value,
-            },
-          ],
-        };
-      });
-
-    /* =======================================================
-       SPARKLE STYLE
-    ======================================================= */
-
-    const sparkleAnimatedStyle =
-      useAnimatedStyle(() => {
-        return {
-          opacity:
-            sparkleOpacity.value,
-
-          transform: [
-            {
-              rotate: `${rotation.value * 360}deg`,
-            },
-          ],
-        };
-      });
-
-    /* =======================================================
-       FULL / INLINE
-    ======================================================= */
-
-    if (variant === "full" || variant === "inline") {
-      return (
-        <View
-          style={[
-            variant === "full"
-              ? styles.fullContainer
-              : styles.inlineContainer,
-            style,
-          ]}
-        >
-          {/* ===============================================
-            FULLSCREEN GLASS BACKGROUND
-        =============================================== */}
-
-          {variant === "full" && (
-            <>
-              <BlurView
-                intensity={35}
-                tint="light"
-                style={StyleSheet.absoluteFill}
-              />
-
-              <View
-                pointerEvents="none"
-                style={styles.fullGlassTint}
-              />
-
-              <Canvas
-                pointerEvents="none"
-                style={StyleSheet.absoluteFill}
-              >
-                <Circle
-                  cx={80}
-                  cy={160}
-                  r={120}
-                  color="rgba(125,95,255,0.08)"
-                />
-
-                <Circle
-                  cx={330}
-                  cy={520}
-                  r={150}
-                  color="rgba(80,180,255,0.06)"
-                />
-              </Canvas>
-            </>
-          )}
-
-          {/* ===============================================
-            MASCOT
-        =============================================== */}
-
-          {showMascot && (
-            <View
-              style={
-                styles.mascotAuraWrapper
-              }
-            >
-              {/* Aura */}
-
-              <Animated.View
-                style={[
-                  styles.glowAuraOuter,
-                  auraAnimatedStyle,
-                ]}
-              />
-
-              <Animated.View
-                style={[
-                  styles.glowAuraInner,
-                  auraAnimatedStyle,
-                ]}
-              />
-
-              {/* Skia glow */}
-
-              <Canvas
-                pointerEvents="none"
-                style={
-                  StyleSheet.absoluteFill
-                }
-              >
-                <Circle
-                  cx={60}
-                  cy={60}
-                  r={47}
-                  color="rgba(145,110,255,0.10)"
-                />
-
-                <Circle
-                  cx={60}
-                  cy={60}
-                  r={30}
-                  color="rgba(255,215,80,0.08)"
-                />
-              </Canvas>
-
-              {/* Orbit */}
-
-              <Animated.View
-                style={[
-                  styles.orbitStars,
-                  sparkleAnimatedStyle,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.star,
-                    styles.starTop,
-                  ]}
-                >
-                  ✨
-                </Text>
-
-                <Text
-                  style={[
-                    styles.star,
-                    styles.starRight,
-                  ]}
-                >
-                  ⭐
-                </Text>
-
-                <Text
-                  style={[
-                    styles.star,
-                    styles.starBottom,
-                  ]}
-                >
-                  ✦
-                </Text>
-
-                <Text
-                  style={[
-                    styles.star,
-                    styles.starLeft,
-                  ]}
-                >
-                  ✨
-                </Text>
-              </Animated.View>
-
-              {/* Mascot */}
-
-              <Animated.View
-                style={mascotAnimatedStyle}
-              >
-                <Mascot
-                  size="small"
-                  pose="happy"
-                  floating={false}
-                />
-              </Animated.View>
-            </View>
-          )}
-
-          {/* ===============================================
-            MESSAGE
-        =============================================== */}
-
-          <GlassMessage
-            message={
-              message ||
-              GAME_TIPS[tipIndex]
-            }
-          />
-        </View>
-      );
-    }
-
-    /* =======================================================
-       CARDS
-    ======================================================= */
-
+  /* =======================================================
+     FULL / INLINE RENDERING
+  ======================================================= */
+  if (variant === "full" || variant === "inline") {
     return (
       <View
         style={[
-          styles.skeletonContainer,
+          variant === "full" ? styles.fullContainer : styles.inlineContainer,
           style,
         ]}
       >
-        {Array.from({
-          length: cardCount,
-        }).map((_, index) => (
-          <GlassSkeletonCard
-            key={index}
-            index={index}
-          />
-        ))}
+        {/* SKIA VISUAL BACKGROUND FOR FULL VARIANT */}
+        {variant === "full" && (
+          <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Rect x={0} y={0} width={width} height={height}>
+              <LinearGradient
+                start={vec(0, 0)}
+                end={vec(width, height)}
+                colors={["#F5F2FF", "#F0EDFF", "#F8F8FF", "#EEF9F7"]}
+              />
+            </Rect>
+
+            <Circle
+              cx={width * 0.85}
+              cy={height * 0.2}
+              r={width * 0.55}
+              color="rgba(111,82,245,0.14)"
+            />
+
+            <Circle
+              cx={width * 0.15}
+              cy={height * 0.75}
+              r={width * 0.5}
+              color="rgba(61,205,226,0.12)"
+            />
+          </Canvas>
+        )}
+
+        {/* MASCOT WITH AURA */}
+        {showMascot && (
+          <View style={styles.mascotAuraWrapper}>
+            <Animated.View style={[styles.glowAuraOuter, auraAnimatedStyle]} />
+            <Animated.View style={[styles.glowAuraInner, auraAnimatedStyle]} />
+
+            {/* Orbiting Sparkle Stars */}
+            <Animated.View style={[styles.orbitStars, sparkleAnimatedStyle]}>
+              <Text style={[styles.star, styles.starTop]}>✨</Text>
+              <Text style={[styles.star, styles.starRight]}>⭐</Text>
+              <Text style={[styles.star, styles.starBottom]}>✦</Text>
+              <Text style={[styles.star, styles.starLeft]}>✨</Text>
+            </Animated.View>
+
+            {/* Mascot */}
+            <Animated.View style={mascotAnimatedStyle}>
+              <Mascot size="small" pose="happy" floating={false} />
+            </Animated.View>
+          </View>
+        )}
+
+        {/* MESSAGE PILL */}
+        <GlassMessage message={message || GAME_TIPS[tipIndex]} />
       </View>
     );
-  };
+  }
+
+  /* =======================================================
+     CARDS VARIANT RENDERING
+  ======================================================= */
+  return (
+    <View style={[styles.skeletonContainer, style]}>
+      {Array.from({ length: cardCount }).map((_, index) => (
+        <GlassSkeletonCard key={index} index={index} />
+      ))}
+    </View>
+  );
+};
 
 /* =========================================================
    STYLES
 ========================================================= */
 
 const styles = StyleSheet.create({
-  /* =======================================================
-     FULL
-  ======================================================= */
-
   fullContainer: {
     flex: 1,
-
     alignItems: "center",
-
     justifyContent: "center",
-
-    padding: spacing.xl,
-
+    padding: 24,
     overflow: "hidden",
-
-    backgroundColor:
-      "rgba(245,243,255,0.72)",
+    backgroundColor: COLORS.background,
   },
-
-  fullGlassTint: {
-    //@ts-ignore
-    ...StyleSheet.absoluteFillObject,
-
-    backgroundColor:
-      "rgba(255,255,255,0.16)",
-  },
-
-  /* =======================================================
-     INLINE
-  ======================================================= */
 
   inlineContainer: {
     alignItems: "center",
-
     justifyContent: "center",
-
-    paddingVertical: spacing.xl,
-
+    paddingVertical: 20,
     width: "100%",
   },
 
-  /* =======================================================
-     MASCOT
-  ======================================================= */
-
+  /* Mascot Aura */
   mascotAuraWrapper: {
     position: "relative",
-
     width: 120,
-
     height: 120,
-
     alignItems: "center",
-
     justifyContent: "center",
-
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
 
   glowAuraOuter: {
     position: "absolute",
-
     width: 112,
-
     height: 112,
-
     borderRadius: 56,
-
-    backgroundColor:
-      "rgba(145,115,255,0.08)",
-
-    borderWidth: 1,
-
-    borderColor:
-      "rgba(145,115,255,0.16)",
+    backgroundColor: "rgba(104,71,245,0.08)",
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.18)",
   },
 
   glowAuraInner: {
     position: "absolute",
-
     width: 88,
-
     height: 88,
-
     borderRadius: 44,
-
-    backgroundColor:
-      "rgba(255,215,80,0.06)",
-
-    borderWidth: 1,
-
-    borderColor:
-      "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(247,183,24,0.08)",
+    borderWidth: 1.2,
+    borderColor: "rgba(247,183,24,0.22)",
   },
-
-  /* =======================================================
-     ORBIT
-  ======================================================= */
 
   orbitStars: {
     position: "absolute",
-
     width: 116,
-
     height: 116,
-
     alignItems: "center",
-
     justifyContent: "center",
-
     zIndex: 5,
   },
 
   star: {
     position: "absolute",
-
     fontSize: 15,
   },
 
   starTop: {
     top: -2,
-
     left: 50,
   },
 
   starRight: {
     right: -1,
-
     top: 46,
-
     fontSize: 13,
   },
 
   starBottom: {
     bottom: -2,
-
     left: 52,
-
     fontSize: 11,
   },
 
   starLeft: {
     left: 0,
-
     top: 42,
-
     fontSize: 12,
   },
 
-  /* =======================================================
-     MESSAGE
-  ======================================================= */
-
+  /* Glass Message Pill */
   messageWrapper: {
-    minHeight: 52,
-
+    minHeight: 50,
     maxWidth: "94%",
-
-    borderRadius: radius.pill,
-
-    overflow: "hidden",
-
+    borderRadius: 25,
     position: "relative",
+    overflow: "hidden",
+    backgroundColor: "rgba(104,71,245,0.045)",
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.18)",
+  },
 
-    backgroundColor:
-      "rgba(255,255,255,0.12)",
-
-    shadowColor: "#000",
-
-    shadowOffset: {
-      width: 0,
-
-      height: 6,
-    },
-
-    shadowOpacity: 0.08,
-
-    shadowRadius: 15,
-
-    elevation: 5,
+  glassTopEdge: {
+    position: "absolute",
+    top: 0,
+    left: 1,
+    right: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.70)",
   },
 
   messageContent: {
-    minHeight: 52,
-
+    minHeight: 50,
     flexDirection: "row",
-
     alignItems: "center",
-
-    paddingHorizontal: 18,
-
+    paddingHorizontal: 20,
     paddingVertical: 10,
-
     gap: 10,
-  },
-
-  messageBorder: {
-    //@ts-ignore
-    ...StyleSheet.absoluteFillObject,
-
-    borderRadius: radius.pill,
-
-    borderWidth: 1,
-
-    borderColor:
-      "rgba(255,255,255,0.30)",
   },
 
   dotRow: {
     flexDirection: "row",
-
-    gap: 4,
-
+    gap: 5,
     alignItems: "center",
   },
 
   glowDot: {
     width: 6,
-
     height: 6,
-
     borderRadius: 3,
-
-    shadowColor: "#FFFFFF",
-
-    shadowOffset: {
-      width: 0,
-
-      height: 0,
-    },
-
-    shadowOpacity: 0.4,
-
-    shadowRadius: 4,
   },
 
   messageText: {
-    ...typography.bodyMedium,
-
+    fontSize: 14,
     fontWeight: "700",
-
-    color: colors.textPrimary,
-
+    color: COLORS.text,
     flexShrink: 1,
   },
 
-  /* =======================================================
-     SKELETON
-  ======================================================= */
-
+  /* Skeleton Cards */
   skeletonContainer: {
     width: "100%",
-
     gap: 12,
   },
 
   skeletonCardWrapper: {
     width: "100%",
-
     height: 72,
-
     borderRadius: 20,
-
-    overflow: "hidden",
-
     position: "relative",
-
-    backgroundColor:
-      "rgba(255,255,255,0.10)",
-
-    shadowColor: "#000",
-
-    shadowOffset: {
-      width: 0,
-
-      height: 5,
-    },
-
-    shadowOpacity: 0.06,
-
-    shadowRadius: 12,
-
-    elevation: 3,
+    overflow: "hidden",
+    backgroundColor: "rgba(104,71,245,0.035)",
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.16)",
   },
 
   skeletonContent: {
     flex: 1,
-
     flexDirection: "row",
-
     alignItems: "center",
-
-    paddingHorizontal: 15,
-  },
-
-  skeletonBorder: {
-    //@ts-ignore
-    ...StyleSheet.absoluteFillObject,
-
-    borderRadius: 20,
-
-    borderWidth: 1,
-
-    borderColor:
-      "rgba(255,255,255,0.24)",
+    paddingHorizontal: 16,
   },
 
   skeletonCircle: {
-    width: 42,
-
-    height: 42,
-
-    borderRadius: 21,
-
-    backgroundColor:
-      "rgba(145,130,200,0.15)",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    marginRight: 14,
-
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(104,71,245,0.08)",
     borderWidth: 1,
-
-    borderColor:
-      "rgba(255,255,255,0.20)",
+    borderColor: "rgba(104,71,245,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
   },
 
   skeletonCircleInner: {
-    width: 23,
-
-    height: 23,
-
-    borderRadius: 12,
-
-    backgroundColor:
-      "rgba(255,255,255,0.18)",
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(104,71,245,0.12)",
   },
 
   skeletonLines: {
@@ -1063,56 +583,25 @@ const styles = StyleSheet.create({
   },
 
   skeletonLine: {
-    height: 13,
-
-    borderRadius: 7,
-
-    backgroundColor:
-      "rgba(130,115,180,0.16)",
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "rgba(104,71,245,0.10)",
   },
 
   skeletonSmallLine: {
     height: 9,
-
     marginTop: 7,
+    backgroundColor: "rgba(104,71,245,0.06)",
   },
 
   skeletonArrow: {
     width: 28,
-
     height: 28,
-
     borderRadius: 14,
-
-    backgroundColor:
-      "rgba(130,115,180,0.12)",
-
+    backgroundColor: "rgba(104,71,245,0.06)",
     alignItems: "center",
-
     justifyContent: "center",
-
     marginLeft: 10,
-  },
-
-  skeletonArrowInner: {
-    width: 8,
-
-    height: 8,
-
-    borderTopWidth: 2,
-
-    borderRightWidth: 2,
-
-    borderColor:
-      "rgba(100,90,140,0.25)",
-
-    transform: [
-      {
-        rotate: "45deg",
-      },
-    ],
-
-    marginLeft: -3,
   },
 });
 

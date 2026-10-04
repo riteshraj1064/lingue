@@ -31,7 +31,8 @@
       "package": "app.ritesh.com"
     },
     "web": {
-      "output": "server",
+      "bundler": "metro",
+      "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -53,7 +54,9 @@
       "expo-image",
       "expo-status-bar",
       "expo-web-browser",
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      "@livekit/react-native-expo-plugin",
+      "@config-plugins/react-native-webrtc"
     ],
     "experiments": {
       "typedRoutes": true,

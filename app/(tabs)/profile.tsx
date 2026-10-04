@@ -666,7 +666,7 @@ export default function ProfileScreen() {
             <View style={styles.actionDivider} />
 
             {/* Switch course */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               activeOpacity={0.75}
               style={styles.actionRowBtn}
               onPress={() => router.push("/(onboarding)/courses")}
@@ -682,7 +682,7 @@ export default function ProfileScreen() {
               />
             </TouchableOpacity>
 
-            <View style={styles.actionDivider} />
+            <View style={styles.actionDivider} /> */}
 
             {/* App Settings */}
             <TouchableOpacity activeOpacity={0.75} style={styles.actionRowBtn}>
@@ -700,7 +700,7 @@ export default function ProfileScreen() {
             <View style={styles.actionDivider} />
 
             {/* Reset */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               activeOpacity={0.75}
               style={styles.actionRowBtn}
               onPress={handleReset}
@@ -718,7 +718,7 @@ export default function ProfileScreen() {
               />
             </TouchableOpacity>
 
-            <View style={styles.actionDivider} />
+            <View style={styles.actionDivider} /> */}
 
             {/* Logout */}
             <TouchableOpacity
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingTop: 8,
-    paddingBottom: 36,
+    paddingBottom: 80,
   },
 
   /* ============================================================

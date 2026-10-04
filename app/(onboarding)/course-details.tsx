@@ -13,7 +13,7 @@ import { Mascot } from "../../components/Mascot";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { ProgressIndicator } from "../../components/ProgressIndicator";
 import { ScreenContainer } from "../../components/ScreenContainer";
-import { colors, radius, shadows, spacing, typography } from "../../constant/constant";
+import { colors, radius, spacing, typography } from "../../constant/constant";
 import { useApp } from "../../context/AppContext";
 
 export default function CourseDetailsScreen() {
@@ -29,7 +29,7 @@ export default function CourseDetailsScreen() {
       id: "words",
       icon: "ribbon",
       color: colors.reward,
-      bg: colors.rewardLight,
+      bg: "rgba(247,183,24,0.12)",
       text: "5,000+ words & phrases",
       description: "Master vocabulary from basics to fluency",
     },
@@ -37,7 +37,7 @@ export default function CourseDetailsScreen() {
       id: "grammar",
       icon: "book",
       color: "#FF9600",
-      bg: "#FFF2E5",
+      bg: "rgba(255,150,0,0.12)",
       text: "Grammar essentials",
       description: "Simple rules, real-world examples",
     },
@@ -45,7 +45,7 @@ export default function CourseDetailsScreen() {
       id: "speaking",
       icon: "headset",
       color: colors.secondaryBlue,
-      bg: colors.secondaryBlueLight,
+      bg: "rgba(61,205,226,0.12)",
       text: "Listening & speaking",
       description: "Interactive pronunciation drills",
     },
@@ -53,7 +53,7 @@ export default function CourseDetailsScreen() {
       id: "writing",
       icon: "create",
       color: colors.primary,
-      bg: colors.primarySurface,
+      bg: "rgba(104,71,245,0.12)",
       text: "Reading & writing",
       description: "Stories, dialogues and fun quizzes",
     },
@@ -69,8 +69,9 @@ export default function CourseDetailsScreen() {
         centerComponent={<ProgressIndicator currentStep={4} totalSteps={4} />}
       />
 
-      {/* Course Banner Card */}
+      {/* Course Glass Banner Card */}
       <View style={styles.courseBannerCard}>
+        <View pointerEvents="none" style={styles.glassTopEdge} />
         <View style={styles.bannerInfo}>
           <View style={styles.pairBadge}>
             <Text style={styles.flagPair}>
@@ -85,14 +86,15 @@ export default function CourseDetailsScreen() {
           </Text>
         </View>
 
-        {/* Landmark illustration aesthetic header */}
+        {/* Landmark illustration header */}
         <View style={styles.landmarkDecor}>
           <Text style={styles.landmarkEmoji}>🎡 🏛️ 🗼</Text>
         </View>
       </View>
 
-      {/* Mascot note */}
+      {/* Mascot glass note */}
       <View style={styles.mascotRow}>
+        <View pointerEvents="none" style={styles.glassTopEdge} />
         <Mascot size="small" pose="studying" />
         <View style={styles.mascotCard}>
           <Text style={styles.mascotNoteTitle}>Personalized Curriculum</Text>
@@ -102,10 +104,11 @@ export default function CourseDetailsScreen() {
         </View>
       </View>
 
-      {/* Features List */}
+      {/* Features Glass List */}
       <View style={styles.featuresSection}>
         {features.map((feat) => (
           <View key={feat.id} style={styles.featureItem}>
+            <View pointerEvents="none" style={styles.glassTopEdge} />
             <View style={[styles.featureIconBox, { backgroundColor: feat.bg }]}>
               <Ionicons name={feat.icon as any} size={22} color={feat.color} />
             </View>
@@ -136,42 +139,53 @@ export default function CourseDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
+  glassTopEdge: {
+    position: "absolute",
+    top: 0,
+    left: 1,
+    right: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.70)",
+  },
   courseBannerCard: {
-    backgroundColor: colors.backgroundBlue,
+    backgroundColor: "rgba(104,71,245,0.05)",
     borderRadius: radius.largeCard,
     padding: 20,
     marginTop: spacing.xs,
     marginBottom: spacing.md,
-    borderWidth: 1.5,
-    borderColor: "#E1EDFF",
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.18)",
     position: "relative",
     overflow: "hidden",
-    ...shadows.subtle,
   },
   bannerInfo: {
     zIndex: 2,
   },
   pairBadge: {
     alignSelf: "flex-start",
-    backgroundColor: colors.white,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: "rgba(104,71,245,0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: radius.pill,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(104,71,245,0.14)",
   },
   flagPair: {
     ...typography.caption,
-    fontWeight: "700",
+    fontWeight: "800",
+    color: colors.textPrimary,
   },
   courseTitle: {
     ...typography.h2,
     color: colors.textPrimary,
+    fontWeight: "900",
   },
   courseSubtitle: {
     ...typography.bodyMedium,
     color: colors.secondaryBlueDark,
     marginTop: 2,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   landmarkDecor: {
     alignSelf: "flex-end",
@@ -184,12 +198,14 @@ const styles = StyleSheet.create({
   mascotRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.backgroundPurple,
+    backgroundColor: "rgba(104,71,245,0.04)",
     padding: 12,
     borderRadius: radius.card,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.primarySurface,
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.16)",
+    position: "relative",
+    overflow: "hidden",
   },
   mascotCard: {
     flex: 1,
@@ -204,6 +220,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
+    fontWeight: "600",
   },
   featuresSection: {
     width: "100%",
@@ -212,13 +229,14 @@ const styles = StyleSheet.create({
   featureItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.white,
+    backgroundColor: "rgba(104,71,245,0.035)",
     padding: 14,
     borderRadius: radius.card,
-    borderWidth: 1.5,
-    borderColor: colors.borderLight,
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.14)",
     marginBottom: 10,
-    ...shadows.subtle,
+    position: "relative",
+    overflow: "hidden",
   },
   featureIconBox: {
     width: 44,
@@ -227,19 +245,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
+    borderWidth: 1,
+    borderColor: "rgba(104,71,245,0.12)",
   },
   featureContent: {
     flex: 1,
   },
   featureTitle: {
     ...typography.bodyLarge,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.textPrimary,
   },
   featureDesc: {
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
+    fontWeight: "600",
   },
   bottomSection: {
     width: "100%",

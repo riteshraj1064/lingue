@@ -11,9 +11,14 @@ import React, {
 import {
   DAILY_GOALS,
   LanguageOption,
-  NATIVE_LANGUAGES,
-  TARGET_LANGUAGES,
 } from "../constant/constant";
+
+const DEFAULT_TARGET_LANG: LanguageOption = {
+  id: "en", name: "English", nativeName: "English", flag: "🇺🇸", code: "en", learners: "",
+};
+const DEFAULT_NATIVE_LANG: LanguageOption = {
+  id: "hi", name: "Hindi", nativeName: "हिन्दी", flag: "🇮🇳", code: "hi", learners: "",
+};
 
 import { AuthResponse, authService } from "../services/authService";
 import {
@@ -86,16 +91,12 @@ interface AppContextType {
 
   refreshStats: () => Promise<void>;
 
-  login: (
+  sendOtp: (
     email: string,
-    password: string
-  ) => Promise<AuthResponse & { courseRestored?: boolean }>;
+    nameOrOptions?: string | { isSignUp?: boolean; name?: string }
+  ) => Promise<void>;
 
-  signup: (
-    name: string,
-    email: string,
-    password: string
-  ) => Promise<AuthResponse>;
+  verifyOtp: (email: string, token: string) => Promise<AuthResponse & { courseRestored?: boolean }>;
 
   resetPassword: (email: string) => Promise<void>;
 
@@ -143,10 +144,10 @@ export function AppProvider({
     useState<SelectedCourse | null>(null);
 
   const [selectedTargetLang, setSelectedTargetLang] =
-    useState<LanguageOption>(TARGET_LANGUAGES[0]);
+    useState<LanguageOption>(DEFAULT_TARGET_LANG);
 
   const [selectedNativeLang, setSelectedNativeLang] =
-    useState<LanguageOption>(NATIVE_LANGUAGES[0]);
+    useState<LanguageOption>(DEFAULT_NATIVE_LANG);
 
   const [selectedGoalId, setSelectedGoalId] =
     useState<string>("regular");
@@ -426,124 +427,42 @@ export function AppProvider({
      LOGIN
   ========================================================== */
 
-  const login = async (
+  const sendOtp = async (
     email: string,
-    password: string
-  ): Promise<
-    AuthResponse & { courseRestored?: boolean }
-  > => {
-    const res = await authService.signIn(
-      email,
-      password
-    );
+    nameOrOptions?: string | { isSignUp?: boolean; name?: string }
+  ): Promise<void> => {
+    await authService.signInWithOtp(email, nameOrOptions);
+  };
 
-    /*
-     * Update local auth state immediately.
-     */
+  const verifyOtp = async (
+    email: string,
+    token: string
+  ): Promise<AuthResponse & { courseRestored?: boolean }> => {
+    const res = await authService.verifyOtp(email, token);
 
     setSession(res.session);
     setUser(res.user);
 
-    /*
-     * Restore active course from server.
-     */
-
     if (res.user) {
       try {
-        const {
-          data: courseData,
-          error: courseError,
-        } = await supabase.rpc(
+        const { data: courseData, error: courseError } = await supabase.rpc(
           "get_active_user_course"
         );
 
-        console.log(
-          "[Course] get_active_user_course:",
-          {
-            courseData,
-            courseError,
-          }
-        );
-
-        if (
-          !courseError &&
-          courseData?.hasActiveCourse
-        ) {
-          const activeCourse =
-            courseData.course;
-
-          console.log(
-            "[Course] Restored:",
-            activeCourse
-          );
-
+        if (!courseError && courseData?.hasActiveCourse) {
+          const activeCourse = courseData.course;
           if (activeCourse) {
-            await storageService.saveSelectedCourse(
-              activeCourse
-            );
-
+            await storageService.saveSelectedCourse(activeCourse);
             setSelectedCourse(activeCourse);
           }
-
-          /*
-           * Stats are also loaded here immediately.
-           *
-           * The user effect will also trigger it,
-           * but calling it here makes login feel faster
-           * and guarantees fresh data after authentication.
-           */
-
           await loadStats();
-
-          return {
-            ...res,
-            courseRestored: true,
-          };
+          return { ...res, courseRestored: true };
         }
-
-        /*
-         * No active course, but user still exists.
-         * Fetch stats anyway.
-         */
-
         await loadStats();
       } catch (error) {
-        console.error(
-          "[Login] Failed restoring user data:",
-          error
-        );
+        console.error("[VerifyOtp] Failed restoring user data:", error);
       }
     }
-
-    return res;
-  };
-
-  /* ==========================================================
-     SIGNUP
-  ========================================================== */
-
-  const signup = async (
-    name: string,
-    email: string,
-    password: string
-  ): Promise<AuthResponse> => {
-    const res = await authService.signUp(
-      name,
-      email,
-      password
-    );
-
-    if (res.session) {
-      setSession(res.session);
-      setUser(res.user);
-
-      /*
-       * Fetch initial server stats.
-       */
-
-      await loadStats();
-    }
-
     return res;
   };
 
@@ -706,13 +625,9 @@ export function AppProvider({
 
     setUser(null);
 
-    setSelectedTargetLang(
-      TARGET_LANGUAGES[0]
-    );
+    setSelectedTargetLang(DEFAULT_TARGET_LANG);
 
-    setSelectedNativeLang(
-      NATIVE_LANGUAGES[0]
-    );
+    setSelectedNativeLang(DEFAULT_NATIVE_LANG);
 
     setSelectedGoalId("regular");
 
@@ -869,9 +784,9 @@ export function AppProvider({
 
         buyLivesWithCoins,
 
-        login,
+        sendOtp,
 
-        signup,
+        verifyOtp,
 
         resetPassword,
 

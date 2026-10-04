@@ -13,7 +13,6 @@ import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { DevScreenPicker } from "../components/DevScreenPicker";
 import { AppProvider } from "../context/AppContext";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -60,8 +59,6 @@ export default function RootLayout() {
               <Stack.Screen name="lesson" />
             </Stack>
 
-            {/* Dev Screen Picker floating widget for easy screen navigation */}
-            <DevScreenPicker />
           </View>
         </AppProvider>
       </SafeAreaProvider>

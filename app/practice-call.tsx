@@ -1,5 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
+  Canvas,
+  Circle,
+  LinearGradient,
+  Rect,
+  vec,
+} from "@shopify/react-native-skia";
+import {
   Call,
   CallClosedCaption,
   StreamCall,
@@ -7,13 +14,6 @@ import {
   StreamVideoClient,
   useCallStateHooks,
 } from "@stream-io/video-react-native-sdk";
-import {
-  Canvas,
-  Circle,
-  LinearGradient,
-  Rect,
-  vec,
-} from "@shopify/react-native-skia";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -32,7 +32,7 @@ import { supabase } from "@/services/supabase";
 
 const mascotImage = require("@/assets/images/mascot.png");
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "";
+const API_URL = "https://vision-agent-1-uyoj.onrender.com";
 const AGENT_USER_ID = "ai-teacher";
 const MAX_CALL_SECONDS = 120;
 
@@ -122,19 +122,19 @@ export default function PracticeCallScreen() {
         data: { session },
       } = await supabase.auth.getSession();
 
+
       if (!session?.access_token) {
         throw new Error("User is not authenticated");
       }
 
       // Fetch Stream token
-      const tokenResponse = await fetch(`${API_URL}/api/stream-token`, {
+      const tokenResponse = await fetch(`https://fcwfzxwhaaocxbwobeay.supabase.co/functions/v1/stream-token`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
         },
       });
-
       const tokenData = await tokenResponse.json();
 
       if (!tokenResponse.ok) {
@@ -212,6 +212,7 @@ export default function PracticeCallScreen() {
       startTwoMinuteTimer();
 
       // Trigger Python AI Agent
+      console.log('first')
       await startAgentSession(callId, session.access_token);
     } catch (error) {
       console.error("Call start error:", error);
@@ -256,26 +257,34 @@ export default function PracticeCallScreen() {
   // AGENT SESSION
   // ============================================================
 
-  async function startAgentSession(callId: string, accessToken: string) {
+  async function startAgentSession(
+    callId: string,
+    accessToken: string
+  ) {
     try {
       setAgentStatus("connecting");
 
-      const response = await fetch(`${API_URL}/api/agent-session`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          callId,
-          callType: "default",
-        }),
-      });
+      const response = await fetch(
+        `https://fcwfzxwhaaocxbwobeay.supabase.co/functions/v1/agent-session`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            callId,
+            callType: "default",
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.error ?? "Agent session failed");
+        throw new Error(
+          data?.error ?? "Agent session failed"
+        );
       }
 
       agentSessionRef.current = data.session_id ?? null;
@@ -285,11 +294,13 @@ export default function PracticeCallScreen() {
       }
     } catch (error) {
       console.error("Free teacher agent error:", error);
+
       if (mountedRef.current) {
         setAgentStatus("failed");
       }
     }
   }
+
 
   // ============================================================
   // END CALL
@@ -354,9 +365,9 @@ export default function PracticeCallScreen() {
       if (!session?.access_token) return;
 
       await fetch(
-        `${API_URL}/api/agent-session` +
-          `?callId=${encodeURIComponent(activeCall.id)}` +
-          `&sessionId=${encodeURIComponent(sessionId)}`,
+        `https://fcwfzxwhaaocxbwobeay.supabase.co/functions/v1/agent-session` +
+        `?callId=${encodeURIComponent(activeCall.id)}` +
+        `&sessionId=${encodeURIComponent(sessionId)}`,
         {
           method: "DELETE",
           headers: {
@@ -384,15 +395,15 @@ export default function PracticeCallScreen() {
 
     try {
       await stopAgentSession();
-    } catch {}
+    } catch { }
 
     try {
       if (activeCall) await activeCall.leave();
-    } catch {}
+    } catch { }
 
     try {
       if (activeClient) await activeClient.disconnectUser();
-    } catch {}
+    } catch { }
 
     callRef.current = null;
     clientRef.current = null;
@@ -873,8 +884,8 @@ function FreeTeacherCallContent({
           {isHeld
             ? "Listening..."
             : isReady
-            ? "Push & hold to speak"
-            : "Waiting for teacher..."}
+              ? "Push & hold to speak"
+              : "Waiting for teacher..."}
         </Text>
 
         <TouchableOpacity

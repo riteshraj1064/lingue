@@ -14,13 +14,13 @@ import { LanguageCard } from "../../components/LanguageCard";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { ProgressIndicator } from "../../components/ProgressIndicator";
 import { ScreenContainer } from "../../components/ScreenContainer";
-import { TARGET_LANGUAGES, colors, spacing, typography } from "../../constant/constant";
+import { codeToFlag, colors, spacing, typography } from "../../constant/constant";
 import { useApp } from "../../context/AppContext";
 
 export default function CourseSelectionScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [targetLanguages, setTargetLanguages] = useState<any[]>(TARGET_LANGUAGES);
+  const [targetLanguages, setTargetLanguages] = useState<any[]>([]);
   const { selectedTargetLang, setTargetLanguage } = useApp();
 
   useEffect(() => {
@@ -30,11 +30,11 @@ export default function CourseSelectionScreen() {
         .from("target_languages")
         .select("*");
       if (error || !data || data.length === 0) {
-        console.log("error fetching languages: ", error)
+        console.log("error fetching languages: ", error);
         setIsLoading(false);
         return;
       }
-      setTargetLanguages(data);
+      setTargetLanguages(data.map((l: any) => ({ ...l, flag: codeToFlag(l.flag) })));
       setIsLoading(false);
     };
     getTargetLanguage();
@@ -75,7 +75,7 @@ export default function CourseSelectionScreen() {
             <LanguageCard
               key={lang.id}
               language={lang}
-              selected={selectedTargetLang.id === lang.id}
+              selected={selectedTargetLang?.id === lang.id}
               onPress={(item) => setTargetLanguage(item)}
             />
           ))
@@ -110,12 +110,14 @@ const styles = StyleSheet.create({
     ...typography.hero,
     color: colors.textPrimary,
     textAlign: "center",
+    fontWeight: "900",
   },
   subtitle: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
     textAlign: "center",
     marginTop: 4,
+    fontWeight: "600",
   },
   listSection: {
     width: "100%",

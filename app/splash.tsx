@@ -2,22 +2,20 @@
 // SCREEN 1 — SPLASH
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import {
   Animated,
-  Dimensions,
   Easing,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { Mascot } from "../components/Mascot";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { colors, radius, typography } from "../constant/constant";
 import { useApp } from "../context/AppContext";
 
-const { width } = Dimensions.get("window");
 
 export default function SplashScreen() {
   const router = useRouter();

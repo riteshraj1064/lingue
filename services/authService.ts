@@ -51,6 +51,63 @@ export const authService = {
     };
   },
 
+  // Sign in or Sign up with OTP
+  async signInWithOtp(
+    email: string,
+    nameOrOptions?: string | { isSignUp?: boolean; name?: string }
+  ): Promise<void> {
+    let isSignUp = false;
+    let name: string | undefined;
+
+    if (typeof nameOrOptions === "object" && nameOrOptions !== null) {
+      isSignUp = nameOrOptions.isSignUp ?? false;
+      name = nameOrOptions.name;
+    } else if (typeof nameOrOptions === "string") {
+      name = nameOrOptions;
+      isSignUp = true;
+    }
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: {
+        shouldCreateUser: isSignUp,
+        data: name ? { full_name: name.trim() } : undefined,
+      },
+    });
+
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (
+        msg.includes("signups not allowed") ||
+        msg.includes("user not found") ||
+        msg.includes("signup is disabled") ||
+        msg.includes("not registered") ||
+        msg.includes("anonymous sign-ins are disabled")
+      ) {
+        throw new Error("This email is not registered. Please sign up first.");
+      }
+      throw new Error(error.message);
+    }
+  },
+
+  // Verify OTP token
+  async verifyOtp(email: string, token: string): Promise<AuthResponse> {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: token.trim(),
+      type: "email",
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      user: data.user,
+      session: data.session,
+    };
+  },
+
   // Reset password email
   async resetPassword(email: string): Promise<void> {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());

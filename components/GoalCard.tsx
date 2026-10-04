@@ -10,7 +10,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { DailyGoalOption, colors, dimensions, radius, shadows, typography } from "../constant/constant";
+import { DailyGoalOption, colors, dimensions, radius, typography } from "../constant/constant";
 
 export interface GoalCardProps {
   goal: DailyGoalOption;
@@ -55,17 +55,18 @@ export const GoalCard: React.FC<GoalCardProps> = ({
           style,
         ]}
       >
+        <View pointerEvents="none" style={styles.glassTopEdge} />
         <View style={styles.leftSection}>
           <View
             style={[
               styles.iconCircle,
-              { backgroundColor: goal.badgeBg },
+              { backgroundColor: goal.badgeBg || "rgba(104,71,245,0.08)" },
             ]}
           >
             <Ionicons
               name={goal.iconName as any}
               size={22}
-              color={goal.badgeColor}
+              color={goal.badgeColor || colors.primary}
             />
           </View>
           <Text style={[styles.title, selected && styles.textSelected]}>
@@ -92,7 +93,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
           {selected ? (
             <View style={styles.checkBadge}>
-              <Ionicons name="checkmark" size={14} color={colors.white} />
+              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
             </View>
           ) : null}
         </View>
@@ -102,25 +103,33 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 };
 
 const styles = StyleSheet.create({
+  glassTopEdge: {
+    position: "absolute",
+    top: 0,
+    left: 1,
+    right: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.70)",
+  },
   card: {
     height: dimensions.goalCardHeight,
     borderRadius: radius.card,
-    borderWidth: 1.5,
+    borderWidth: 1.2,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     marginBottom: 12,
-    backgroundColor: colors.white,
-    ...shadows.subtle,
+    position: "relative",
+    overflow: "hidden",
   },
   cardDefault: {
-    borderColor: colors.border,
+    backgroundColor: "rgba(104,71,245,0.035)",
+    borderColor: "rgba(104,71,245,0.16)",
   },
   cardSelected: {
+    backgroundColor: "rgba(104,71,245,0.09)",
     borderColor: colors.primary,
-    backgroundColor: colors.primarySurface,
-    ...shadows.cardSelected,
   },
   leftSection: {
     flexDirection: "row",
@@ -133,15 +142,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
+    borderWidth: 1,
+    borderColor: "rgba(104,71,245,0.14)",
   },
   title: {
     ...typography.bodyLarge,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.textPrimary,
   },
   textSelected: {
     color: colors.primary,
-    fontWeight: "800",
+    fontWeight: "900",
   },
   rightSection: {
     flexDirection: "row",
@@ -149,29 +160,29 @@ const styles = StyleSheet.create({
   },
   durationBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: radius.pill,
-    backgroundColor: colors.backgroundOffWhite,
+    backgroundColor: "rgba(104,71,245,0.06)",
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: "rgba(104,71,245,0.14)",
   },
   durationBadgeSelected: {
-    backgroundColor: colors.white,
-    borderColor: colors.primaryLight,
+    backgroundColor: "rgba(104,71,245,0.12)",
+    borderColor: colors.primary,
   },
   durationText: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   durationTextSelected: {
     color: colors.primary,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   checkBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",

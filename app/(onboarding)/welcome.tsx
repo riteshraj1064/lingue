@@ -1,7 +1,6 @@
 // app/(onboarding)/welcome.tsx
 // SCREEN 5 — ONBOARDING WELCOME
 import { useRouter } from "expo-router";
-import React from "react";
 import {
   StyleSheet,
   Text,
@@ -17,11 +16,9 @@ import { colors, radius, spacing, typography } from "../../constant/constant";
 export default function OnboardingWelcomeScreen() {
   const router = useRouter();
 
-
   return (
     <ScreenContainer
       scrollable={true}
-      backgroundColor="#FBF9FE"
       withBottomPadding={true}
     >
       <Header
@@ -40,9 +37,12 @@ export default function OnboardingWelcomeScreen() {
           </Text>
         </View>
 
-        {/* Illustrated Landscape & Path with Mascot */}
+        {/* Illustrated Landscape & Path with Mascot in Glass Environment */}
         <View style={styles.illustrationContainer}>
-          {/* Floating coins */}
+          {/* Ambient Glow behind mascot */}
+          <View style={styles.mascotGlow} />
+
+          {/* Floating glass coins */}
           <View style={[styles.floatingCoin, styles.coinLeft]}>
             <Text style={styles.coinEmoji}>🪙</Text>
           </View>
@@ -57,7 +57,7 @@ export default function OnboardingWelcomeScreen() {
             speechText="Let's learn something new today!"
           />
 
-          {/* Yellow Star Marker & Path Base */}
+          {/* Glass Star Marker & Platform Base */}
           <View style={styles.pathPlatform}>
             <View style={styles.starBadge}>
               <Text style={styles.starText}>⭐</Text>
@@ -102,6 +102,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: "center",
     lineHeight: 38,
+    fontWeight: "900",
   },
   subtitle: {
     ...typography.bodyMedium,
@@ -110,6 +111,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 22,
     maxWidth: 320,
+    fontWeight: "600",
   },
   illustrationContainer: {
     alignItems: "center",
@@ -119,16 +121,23 @@ const styles = StyleSheet.create({
     minHeight: 280,
     marginVertical: spacing.md,
   },
+  mascotGlow: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(104,71,245,0.08)",
+  },
   floatingCoin: {
     position: "absolute",
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.rewardLight,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(247,183,24,0.15)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: colors.reward,
+    borderWidth: 1.2,
+    borderColor: "rgba(247,183,24,0.35)",
   },
   coinLeft: {
     top: 20,
@@ -139,7 +148,7 @@ const styles = StyleSheet.create({
     right: 28,
   },
   coinEmoji: {
-    fontSize: 18,
+    fontSize: 20,
   },
   pathPlatform: {
     alignItems: "center",
@@ -150,29 +159,24 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.reward,
+    backgroundColor: "rgba(247,183,24,0.20)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
-    borderColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: "rgba(247,183,24,0.40)",
     zIndex: 5,
-    shadowColor: colors.rewardDark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
   },
   starText: {
     fontSize: 26,
   },
   curvedPath: {
     width: 140,
-    height: 30,
-    backgroundColor: "#EBDDB2",
+    height: 28,
+    backgroundColor: "rgba(104,71,245,0.06)",
     borderRadius: radius.largeCard,
-    marginTop: -15,
-    borderWidth: 1,
-    borderColor: "#DFC888",
+    marginTop: -14,
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.16)",
   },
   bottomSection: {
     width: "100%",

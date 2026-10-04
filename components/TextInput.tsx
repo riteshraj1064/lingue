@@ -19,6 +19,7 @@ export interface TextInputProps extends RNTextInputProps {
   leftIcon?: keyof typeof Ionicons.glyphMap;
   isPassword?: boolean;
   containerStyle?: StyleProp<ViewStyle>;
+  variant?: "default" | "glass";
 }
 
 export const TextInput: React.FC<TextInputProps> = ({
@@ -27,6 +28,7 @@ export const TextInput: React.FC<TextInputProps> = ({
   leftIcon,
   isPassword = false,
   containerStyle,
+  variant = "default",
   value,
   onChangeText,
   placeholder,
@@ -36,9 +38,26 @@ export const TextInput: React.FC<TextInputProps> = ({
   const [showPassword, setShowPassword] = useState(false);
 
   const getBorderColor = () => {
+    if (variant === "glass") {
+      if (error) return colors.danger;
+      if (isFocused) return "#6847F5"; // Active focus glow
+      return "rgba(104,71,245,0.16)";
+    }
     if (error) return colors.danger;
     if (isFocused) return colors.primary;
     return colors.border;
+  };
+
+  const getBackgroundColor = () => {
+    if (variant === "glass") {
+      return isFocused ? "rgba(104,71,245,0.08)" : "rgba(104,71,245,0.035)";
+    }
+    return isFocused ? colors.white : colors.inputBackground;
+  };
+
+  const getTextColor = () => {
+    if (variant === "glass") return colors.textPrimary; // assuming #111126 or similar for this theme
+    return colors.textPrimary;
   };
 
   return (
@@ -50,7 +69,7 @@ export const TextInput: React.FC<TextInputProps> = ({
           styles.inputContainer,
           {
             borderColor: getBorderColor(),
-            backgroundColor: isFocused ? colors.white : colors.inputBackground,
+            backgroundColor: getBackgroundColor(),
           },
         ]}
       >
@@ -64,9 +83,9 @@ export const TextInput: React.FC<TextInputProps> = ({
         ) : null}
 
         <RNTextInput
-          style={styles.input}
+          style={[styles.input, { color: getTextColor() }]}
           placeholder={placeholder}
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={variant === "glass" ? "rgba(98,96,120,0.68)" : colors.textMuted}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={isPassword && !showPassword}

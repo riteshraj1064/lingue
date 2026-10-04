@@ -290,7 +290,7 @@ export default function AITeacherScreen() {
             // ========================================================
 
             const tokenResponse = await fetch(
-                `${API_URL}/api/stream-token`,
+                `https://fcwfzxwhaaocxbwobeay.supabase.co/functions/v1/stream-token`,
                 {
                     method: "POST",
                     headers: {
@@ -626,7 +626,7 @@ export default function AITeacherScreen() {
         try {
             const response =
                 await fetch(
-                    `${API_URL}/api/agent-session`,
+                    `https://fcwfzxwhaaocxbwobeay.supabase.co/functions/v1/agent-session`,
                     {
                         method: "POST",
 

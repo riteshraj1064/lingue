@@ -83,13 +83,14 @@ const Glass: React.FC<GlassProps> = ({ children, style }) => {
 export default function ShopScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
-  const { stats, buyLivesWithGems } = useApp();
+  const { stats, refreshStats } = useApp();
 
   const isNarrow = width < 360;
   const horizontalPadding = isNarrow ? 10 : 12;
 
   const [items, setItems] = useState<ShopItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [purchasingItemId, setPurchasingItemId] = useState<number | null>(null);
 
   /* Alert State */
   const [alertConfig, setAlertConfig] = useState<{
@@ -129,7 +130,7 @@ export default function ShopScreen() {
         }
         if (data) {
           console.log("data from fetch data shop", data);
-          setItems(data as ShopItem[]);
+          setItems(data?.items as ShopItem[]);
         }
       } catch (error) {
         console.log(error);
@@ -141,6 +142,14 @@ export default function ShopScreen() {
     loadData();
   }, []);
 
+  function generateRequestId(): string {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = Math.floor(Math.random() * 16);
+      const v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
   const handlePurchase = async (item: ShopItem) => {
     if (stats.gems < item.gem_price) {
       showAlert(
@@ -151,19 +160,53 @@ export default function ShopScreen() {
       return;
     }
 
-    if (item.item_type === "HEART_REFILL") {
-      const res = await buyLivesWithGems(item.gem_price, 5);
+    setPurchasingItemId(item.id);
+    try {
+      const requestId = generateRequestId();
+
+      const { data, error } = await supabase.rpc("buy_shop_item", {
+        p_item_id: item.id,
+        p_quantity: 1,
+        p_request_id: requestId,
+      });
+
+      if (error) {
+        console.error("buy_shop_item RPC error:", error);
+        showAlert(
+          "Purchase Failed",
+          error.message || "Failed to process purchase. Please try again.",
+          "error"
+        );
+        return;
+      }
+
+      console.log("buy_shop_item response data:", data);
+
+      if (data && typeof data === "object" && "success" in data && !data.success) {
+        showAlert(
+          "Purchase Failed",
+          data.message || data.error || "Failed to process purchase.",
+          "error"
+        );
+        return;
+      }
+
+      await refreshStats();
+
+      const successMsg =
+        (typeof data === "object" && data?.message) ||
+        `You bought ${item.name} for ${item.gem_price} gems!`;
+
+      showAlert("Purchase Successful", successMsg, "success");
+    } catch (err: any) {
+      console.error("Error during purchase:", err);
       showAlert(
-        res.success ? "Success" : "Failed",
-        res.message,
-        res.success ? "success" : "error"
+        "Purchase Failed",
+        err?.message || "An unexpected error occurred during purchase.",
+        "error"
       );
-    } else {
-      showAlert(
-        "Purchase Successful",
-        `You bought ${item.name} for ${item.gem_price} gems!`,
-        "success"
-      );
+    } finally {
+      setPurchasingItemId(null);
     }
   };
 
@@ -316,6 +359,9 @@ export default function ShopScreen() {
                 const iconProps = getIconProps(item.item_type);
                 const canAfford = stats.gems >= item.gem_price;
 
+                const isPurchasing = purchasingItemId === item.id;
+                const isDisabled = !canAfford || isPurchasing;
+
                 return (
                   <Glass key={item.id} style={styles.itemCardGlass}>
                     <View style={styles.cardRow}>
@@ -346,25 +392,32 @@ export default function ShopScreen() {
 
                       <TouchableOpacity
                         activeOpacity={0.78}
+                        disabled={isDisabled}
                         style={[
                           styles.buyButton,
-                          !canAfford && styles.buyButtonDisabled,
+                          isDisabled && styles.buyButtonDisabled,
                         ]}
                         onPress={() => handlePurchase(item)}
                       >
-                        <Ionicons
-                          name="diamond"
-                          size={14}
-                          color={canAfford ? COLORS.white : COLORS.textMuted}
-                        />
-                        <Text
-                          style={[
-                            styles.buyButtonText,
-                            !canAfford && styles.buyButtonTextDisabled,
-                          ]}
-                        >
-                          {item.gem_price}
-                        </Text>
+                        {isPurchasing ? (
+                          <ActivityIndicator size="small" color={COLORS.white} />
+                        ) : (
+                          <>
+                            <Ionicons
+                              name="diamond"
+                              size={14}
+                              color={canAfford ? COLORS.white : COLORS.textMuted}
+                            />
+                            <Text
+                              style={[
+                                styles.buyButtonText,
+                                !canAfford && styles.buyButtonTextDisabled,
+                              ]}
+                            >
+                              {item.gem_price}
+                            </Text>
+                          </>
+                        )}
                       </TouchableOpacity>
                     </View>
                   </Glass>

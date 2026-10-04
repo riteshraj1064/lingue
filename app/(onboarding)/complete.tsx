@@ -13,7 +13,7 @@ import { Header } from "../../components/Header";
 import { Mascot } from "../../components/Mascot";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { ScreenContainer } from "../../components/ScreenContainer";
-import { colors, radius, shadows, spacing, typography } from "../../constant/constant";
+import { colors, radius, spacing, typography } from "../../constant/constant";
 import { useApp } from "../../context/AppContext";
 
 export default function OnboardingCompleteScreen() {
@@ -26,76 +26,51 @@ export default function OnboardingCompleteScreen() {
 
   const getGoalText = () => {
     switch (selectedGoalId) {
-      case "casual":
-        return "Casual • 5 min/day";
-      case "serious":
-        return "Serious • 15 min/day";
-      case "intense":
-        return "Intense • 20 min/day";
+      case "casual":  return "Casual \u2022 5 min/day";
+      case "serious": return "Serious \u2022 15 min/day";
+      case "intense": return "Intense \u2022 20 min/day";
       case "regular":
-      default:
-        return "Regular • 10 min/day";
+      default:        return "Regular \u2022 10 min/day";
     }
   };
 
   return (
     <ScreenContainer scrollable={true} withBottomPadding={true}>
-      {/* Celebration Confetti Effect */}
       <Confetti />
-
-      <Header
-        showBack={true}
-        onBack={() => router.push("/(onboarding)/daily-goal")}
-        transparent={true}
-      />
+      <Header showBack={true} onBack={() => router.push("/(onboarding)/daily-goal")} transparent={true} />
 
       <View style={styles.headerSection}>
-        <Text style={styles.heading}>You're all set!</Text>
+        <Text style={styles.heading}>You’re all set!</Text>
       </View>
 
-      {/* Large Celebrating Mascot */}
       <View style={styles.mascotSection}>
-        <Mascot
-          size="celebration"
-          pose="celebrating"
-          speechText="Woohoo! You're ready to learn!"
-        />
+        <Mascot size="celebration" pose="celebrating" speechText="Woohoo! You're ready to learn!" />
       </View>
 
-      {/* Summary Recap Card */}
       <View style={styles.summaryCard}>
+        <View pointerEvents="none" style={styles.glassTopEdge} />
         <View style={styles.summaryRow}>
-          <View style={styles.summaryIconBox}>
-            <Text style={styles.summaryEmoji}>🌍</Text>
-          </View>
+          <View style={styles.summaryIconBox}><Text style={styles.summaryEmoji}>🌍</Text></View>
           <View style={styles.summaryTextContainer}>
             <Text style={styles.summaryLabel}>Course</Text>
             <Text style={styles.summaryValue}>
-              {selectedNativeLang.name} → {selectedTargetLang.name} {selectedTargetLang.flag}
+              {(selectedNativeLang?.name || "English") + " \u2192 " + (selectedTargetLang?.name || "Spanish") + " " + (selectedTargetLang?.flag || "🇪🇸")}
             </Text>
           </View>
           <Ionicons name="checkmark-circle" size={22} color={colors.success} />
         </View>
-
         <View style={styles.summaryDivider} />
-
         <View style={styles.summaryRow}>
-          <View style={styles.summaryIconBox}>
-            <Text style={styles.summaryEmoji}>⏱️</Text>
-          </View>
+          <View style={styles.summaryIconBox}><Text style={styles.summaryEmoji}>⏱️</Text></View>
           <View style={styles.summaryTextContainer}>
             <Text style={styles.summaryLabel}>Daily Goal</Text>
             <Text style={styles.summaryValue}>{getGoalText()}</Text>
           </View>
           <Ionicons name="checkmark-circle" size={22} color={colors.success} />
         </View>
-
         <View style={styles.summaryDivider} />
-
         <View style={styles.summaryRow}>
-          <View style={styles.summaryIconBox}>
-            <Text style={styles.summaryEmoji}>🌱</Text>
-          </View>
+          <View style={styles.summaryIconBox}><Text style={styles.summaryEmoji}>🌱</Text></View>
           <View style={styles.summaryTextContainer}>
             <Text style={styles.summaryLabel}>Starting Level</Text>
             <Text style={styles.summaryValue}>Level 1 • Beginner</Text>
@@ -104,103 +79,84 @@ export default function OnboardingCompleteScreen() {
         </View>
       </View>
 
-      {/* Motivational Tagline */}
-      <View style={styles.messageSection}>
-        <Text style={styles.journeyMessage}>
-          Let's start your language learning journey.
-        </Text>
+      {/* Glass Pill Tagline */}
+      <View style={styles.taglinePill}>
+        <View pointerEvents="none" style={styles.pillTopEdge} />
+        <Ionicons name="sparkles" size={14} color="rgba(104,71,245,0.70)" style={styles.taglineIcon} />
+        <Text style={styles.taglineText}>Let’s start your language learning journey.</Text>
+        <Ionicons name="sparkles" size={14} color="rgba(104,71,245,0.70)" style={styles.taglineIcon} />
       </View>
 
-      {/* Primary Go to Home Button */}
-      <View style={styles.bottomSection}>
-        <PrimaryButton
-          title="Go to Home"
-          size="large"
-          onPress={handleGoHome}
-          style={styles.homeButton}
-        />
+      {/* Glass Footer CTA */}
+      <View style={styles.glassFooter}>
+        <View pointerEvents="none" style={styles.glassTopEdge} />
+        <View style={styles.footerInner}>
+          <Ionicons name="rocket-outline" size={18} color="rgba(104,71,245,0.60)" />
+          <Text style={styles.footerHint}>Your adventure begins now</Text>
+        </View>
+        <PrimaryButton title="Go to Home" size="large" onPress={handleGoHome} style={styles.homeButton} />
       </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  headerSection: {
-    alignItems: "center",
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  heading: {
-    ...typography.hero,
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
-  mascotSection: {
-    alignItems: "center",
-    marginVertical: spacing.md,
-  },
+  glassTopEdge: { position: "absolute", top: 0, left: 1, right: 1, height: 1, backgroundColor: "rgba(255,255,255,0.70)" },
+  pillTopEdge:  { position: "absolute", top: 0, left: 1, right: 1, height: 1, backgroundColor: "rgba(255,255,255,0.80)" },
+  headerSection: { alignItems: "center", marginTop: spacing.xs, marginBottom: spacing.xs },
+  heading: { ...typography.hero, color: colors.textPrimary, textAlign: "center", fontWeight: "900" },
+  mascotSection: { alignItems: "center", marginVertical: spacing.md },
   summaryCard: {
-    backgroundColor: colors.white,
+    backgroundColor: "rgba(104,71,245,0.035)",
     borderRadius: radius.card,
     padding: 16,
-    borderWidth: 1.5,
-    borderColor: colors.borderLight,
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.16)",
     width: "100%",
     marginBottom: spacing.md,
-    ...shadows.card,
+    position: "relative",
+    overflow: "hidden",
   },
-  summaryRow: {
+  summaryRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8 },
+  summaryIconBox: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: "rgba(104,71,245,0.08)",
+    alignItems: "center", justifyContent: "center",
+    marginRight: 12, borderWidth: 1, borderColor: "rgba(104,71,245,0.14)",
+  },
+  summaryEmoji: { fontSize: 20 },
+  summaryTextContainer: { flex: 1 },
+  summaryLabel: { ...typography.tiny, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: "700" },
+  summaryValue: { ...typography.bodyMedium, color: colors.textPrimary, fontWeight: "800", marginTop: 2 },
+  summaryDivider: { height: 1, backgroundColor: "rgba(104,71,245,0.10)", marginVertical: 4 },
+  taglinePill: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: "rgba(104,71,245,0.055)",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(104,71,245,0.20)",
     paddingVertical: 8,
-  },
-  summaryIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.backgroundOffWhite,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  summaryEmoji: {
-    fontSize: 18,
-  },
-  summaryTextContainer: {
-    flex: 1,
-  },
-  summaryLabel: {
-    ...typography.tiny,
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  summaryValue: {
-    ...typography.bodyMedium,
-    color: colors.textPrimary,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: colors.borderLight,
-    marginVertical: 4,
-  },
-  messageSection: {
-    alignItems: "center",
+    paddingHorizontal: 16,
     marginBottom: spacing.lg,
+    position: "relative",
+    overflow: "hidden",
   },
-  journeyMessage: {
-    ...typography.bodyMedium,
-    color: colors.textSecondary,
-    textAlign: "center",
-    fontWeight: "600",
-  },
-  bottomSection: {
+  taglineIcon: { marginHorizontal: 4 },
+  taglineText: { ...typography.caption, color: colors.textSecondary, textAlign: "center", fontWeight: "700", flexShrink: 1 },
+  glassFooter: {
     width: "100%",
-    marginTop: spacing.xs,
+    backgroundColor: "rgba(104,71,245,0.045)",
+    borderRadius: radius.card,
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.18)",
+    padding: 16,
+    position: "relative",
+    overflow: "hidden",
+    marginBottom: spacing.sm,
   },
-  homeButton: {
-    backgroundColor: colors.primary,
-  },
+  footerInner: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 12 },
+  footerHint: { ...typography.caption, color: "rgba(104,71,245,0.72)", fontWeight: "700", letterSpacing: 0.3 },
+  homeButton: { backgroundColor: colors.primary },
 });

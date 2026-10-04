@@ -1,9 +1,9 @@
 // constant/constant.ts
 // Lingua — Global High-Fidelity Design System Tokens & Constants
 
-import { Dimensions, Platform } from "react-native";
+import { useWindowDimensions } from "react-native";
 
-const { width, height } = Dimensions.get("window");
+const { width, height } = useWindowDimensions();
 
 /* ============================================================
    COLORS
@@ -17,6 +17,7 @@ export const colors = {
   primarySurface: "#F5F2FF",
   primarySurfaceLight: "#FAF8FF",
   splashBackground: "#5E3DEF",
+  error: "#FF0000",
 
   // Gamification & Accent Colors
   success: "#58CC02",
@@ -266,25 +267,26 @@ export interface LanguageOption {
   learners: string;
 }
 
-export const TARGET_LANGUAGES: LanguageOption[] = [
-  { id: "en", name: "English", nativeName: "English", flag: "🇺🇸", code: "en", learners: "14.2M learners" },
-  { id: "es", name: "Spanish", nativeName: "Español", flag: "🇪🇸", code: "es", learners: "8.5M learners" },
-  { id: "fr", name: "French", nativeName: "Français", flag: "🇫🇷", code: "fr", learners: "6.1M learners" },
-  { id: "de", name: "German", nativeName: "Deutsch", flag: "🇩🇪", code: "de", learners: "4.8M learners" },
-  { id: "ja", name: "Japanese", nativeName: "日本語", flag: "🇯🇵", code: "ja", learners: "7.9M learners" },
-  { id: "ko", name: "Korean", nativeName: "한국어", flag: "🇰🇷", code: "ko", learners: "5.4M learners" },
-  { id: "it", name: "Italian", nativeName: "Italiano", flag: "🇮🇹", code: "it", learners: "3.2M learners" },
-  { id: "zh", name: "Chinese", nativeName: "中文", flag: "🇨🇳", code: "zh", learners: "4.1M learners" },
-];
-
-export const NATIVE_LANGUAGES: LanguageOption[] = [
-  { id: "hi", name: "Hindi", nativeName: "हिन्दी", flag: "🇮🇳", code: "hi", learners: "" },
-  { id: "en", name: "English", nativeName: "English", flag: "🇺🇸", code: "en", learners: "" },
-  { id: "es", name: "Spanish", nativeName: "Español", flag: "🇪🇸", code: "es", learners: "" },
-  { id: "fr", name: "French", nativeName: "Français", flag: "🇫🇷", code: "fr", learners: "" },
-  { id: "de", name: "German", nativeName: "Deutsch", flag: "🇩🇪", code: "de", learners: "" },
-  { id: "ja", name: "Japanese", nativeName: "日本語", flag: "🇯🇵", code: "ja", learners: "" },
-];
+/**
+ * Converts a 2-letter ISO 3166-1 alpha-2 country code (e.g. "US", "IN")
+ * to a flag emoji (e.g. "🇺🇸", "🇮🇳").
+ *
+ * If the value already contains a flag emoji (or any non-ASCII character)
+ * it is returned as-is, so this is safe to call on DB values that may
+ * already be stored as emoji.
+ */
+export function codeToFlag(value: string | null | undefined): string {
+  if (!value) return "🌐";
+  // Already an emoji / non-ASCII — pass through
+  if (/[^\u0000-\u007F]/.test(value)) return value;
+  const upper = value.trim().toUpperCase();
+  if (upper.length !== 2) return "🌐";
+  // Regional indicator symbols: A=0x1F1E6 … Z=0x1F1FF
+  return String.fromCodePoint(
+    0x1f1e6 + upper.charCodeAt(0) - 65,
+    0x1f1e6 + upper.charCodeAt(1) - 65
+  );
+}
 
 export interface DailyGoalOption {
   id: "casual" | "regular" | "serious" | "intense";
@@ -352,8 +354,6 @@ export default {
   screen,
   responsive,
   shadows,
-  TARGET_LANGUAGES,
-  NATIVE_LANGUAGES,
   DAILY_GOALS,
   STORAGE_KEYS,
 };

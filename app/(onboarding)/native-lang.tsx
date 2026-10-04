@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { GameLoader } from "../../components/GameLoader";
 import { Header } from "../../components/Header";
@@ -18,8 +18,8 @@ import { ProgressIndicator } from "../../components/ProgressIndicator";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import {
   colors,
+  codeToFlag,
   radius,
-  shadows,
   spacing,
   typography,
 } from "../../constant/constant";
@@ -47,7 +47,7 @@ export default function NativeLanguageScreen() {
       try {
         const parsed = JSON.parse(params.languages);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setTargetLanguages(parsed);
+          setTargetLanguages(parsed.map((l: any) => ({ ...l, flag: codeToFlag(l.flag) })));
         }
       } catch (e) {
         console.error("Error parsing target languages param:", e);
@@ -65,10 +65,11 @@ export default function NativeLanguageScreen() {
       if (nativeError) {
         console.error("Error fetching native languages:", nativeError);
       } else if (nativeData && nativeData.length > 0) {
-        setNativeLanguages(nativeData);
+        const normalized = nativeData.map((l: any) => ({ ...l, flag: codeToFlag(l.flag) }));
+        setNativeLanguages(normalized);
         // Set default native language if not selected or invalid
-        if (!selectedNativeLang || !nativeData.some((l) => l.id === selectedNativeLang.id)) {
-          setNativeLanguage(nativeData[0]);
+        if (!selectedNativeLang || !normalized.some((l) => l.id === selectedNativeLang.id)) {
+          setNativeLanguage(normalized[0]);
         }
       }
 
@@ -78,7 +79,7 @@ export default function NativeLanguageScreen() {
           .from("target_languages")
           .select("*");
         if (targetData && targetData.length > 0) {
-          setTargetLanguages(targetData);
+          setTargetLanguages(targetData.map((l: any) => ({ ...l, flag: codeToFlag(l.flag) })));
         }
       }
 
@@ -113,14 +114,17 @@ export default function NativeLanguageScreen() {
         </View>
       ) : (
         <>
-          {/* Primary Native Language Selector Card */}
+          {/* Primary Native Language Selector Glass Card */}
           <TouchableOpacity
             style={styles.nativeCard}
             onPress={() => setShowNativeDropdown(!showNativeDropdown)}
             activeOpacity={0.8}
           >
+            <View pointerEvents="none" style={styles.glassTopEdge} />
             <View style={styles.nativeLeft}>
-              <Text style={styles.nativeFlag}>{selectedNativeLang?.flag || "🌐"}</Text>
+              <View style={styles.flagPod}>
+                <Text style={styles.nativeFlag}>{selectedNativeLang?.flag || "🌐"}</Text>
+              </View>
               <View>
                 <Text style={styles.nativeName}>{selectedNativeLang?.name || "Select language"}</Text>
                 {selectedNativeLang?.nativeName ? (
@@ -139,6 +143,7 @@ export default function NativeLanguageScreen() {
           {/* Dropdown Options if expanded */}
           {showNativeDropdown && (
             <View style={styles.dropdownContainer}>
+              <View pointerEvents="none" style={styles.glassTopEdge} />
               {nativeLanguages.map((lang) => (
                 <TouchableOpacity
                   key={lang.id}
@@ -206,6 +211,14 @@ export default function NativeLanguageScreen() {
 }
 
 const styles = StyleSheet.create({
+  glassTopEdge: {
+    position: "absolute",
+    top: 0,
+    left: 1,
+    right: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.70)",
+  },
   sectionHeader: {
     alignItems: "center",
     marginTop: spacing.xs,
@@ -215,12 +228,14 @@ const styles = StyleSheet.create({
     ...typography.hero,
     color: colors.textPrimary,
     textAlign: "center",
+    fontWeight: "900",
   },
   subHeading: {
     ...typography.h3,
     color: colors.textPrimary,
     textAlign: "center",
     marginTop: spacing.md,
+    fontWeight: "800",
   },
   loaderContainer: {
     width: "100%",
@@ -234,37 +249,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: radius.card,
-    backgroundColor: colors.white,
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    backgroundColor: "rgba(104,71,245,0.04)",
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.16)",
     marginBottom: spacing.sm,
-    ...shadows.subtle,
+    position: "relative",
+    overflow: "hidden",
   },
   nativeLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
+  flagPod: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(104,71,245,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(104,71,245,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   nativeFlag: {
-    fontSize: 26,
+    fontSize: 24,
   },
   nativeName: {
     ...typography.bodyLarge,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.textPrimary,
   },
   nativeSubtitle: {
     ...typography.caption,
     color: colors.textSecondary,
+    fontWeight: "600",
   },
   dropdownContainer: {
-    backgroundColor: colors.white,
+    backgroundColor: "rgba(245,242,255,0.92)",
     borderRadius: radius.card,
-    borderWidth: 1.5,
-    borderColor: colors.borderLight,
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.20)",
     padding: 6,
     marginBottom: spacing.md,
-    ...shadows.card,
+    position: "relative",
+    overflow: "hidden",
   },
   dropdownItem: {
     flexDirection: "row",
@@ -274,7 +302,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   dropdownItemSelected: {
-    backgroundColor: colors.primarySurface,
+    backgroundColor: "rgba(104,71,245,0.12)",
   },
   dropdownFlag: {
     fontSize: 20,
@@ -284,10 +312,11 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.textPrimary,
     flex: 1,
+    fontWeight: "600",
   },
   dropdownTextSelected: {
     color: colors.primary,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   gridContainer: {
     flexDirection: "row",

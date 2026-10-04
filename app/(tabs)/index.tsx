@@ -841,7 +841,7 @@ export default function HomeMap() {
           } else if (curriculumRes.data) {
             setUnits(curriculumRes.data as Unit[]);
           }
-
+          console.log("[homemap] dailyXpRes", dailyXpRes);
           if (dailyXpRes.error) {
             console.warn("is_daily_xp_available error in homemap:", dailyXpRes.error);
           } else if (dailyXpRes.data !== undefined) {
@@ -1112,22 +1112,7 @@ export default function HomeMap() {
         />
       </Animated.View>
 
-      {/* SETTINGS BUTTON */}
-      <Animated.View
-        pointerEvents="auto"
-        style={[
-          styles.settingsLayer,
-          {
-            opacity: settingsOpacity,
-          },
-        ]}
-      >
-        <SettingsButton
-          onPress={() => {
-            router.push("/(tabs)/profile");
-          }}
-        />
-      </Animated.View>
+
 
       {/* DAILY REWARD MODAL */}
       <DailyRewardModal

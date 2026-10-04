@@ -14,7 +14,7 @@ import { GoalCard } from "../../components/GoalCard";
 import { Header } from "../../components/Header";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { ScreenContainer } from "../../components/ScreenContainer";
-import { DAILY_GOALS, colors, shadows, spacing, typography } from "../../constant/constant";
+import { DAILY_GOALS, colors, spacing, typography } from "../../constant/constant";
 import { useApp } from "../../context/AppContext";
 
 export default function DailyGoalScreen() {
@@ -63,50 +63,51 @@ export default function DailyGoalScreen() {
   return (
     <>
       <ScreenContainer scrollable={true} withBottomPadding={true}>
-      <Header
-        showBack={true}
-        onBack={() => router.push("/(onboarding)/course-details")}
-        transparent={true}
-      />
-
-      {/* Top Trophy Icon */}
-      <View style={styles.headerSection}>
-        <View style={styles.trophyCircle}>
-          <Ionicons name="trophy" size={32} color={colors.reward} />
-        </View>
-        <Text style={styles.heading}>Daily Goal</Text>
-        <Text style={styles.subtitle}>Set your daily learning goal</Text>
-      </View>
-
-      {/* Goal Cards */}
-      <View style={styles.goalsList}>
-        {DAILY_GOALS.map((goal) => (
-          <GoalCard
-            key={goal.id}
-            goal={goal}
-            selected={selectedGoalId === goal.id}
-            onPress={(item) => setDailyGoalId(item.id)}
-          />
-        ))}
-      </View>
-
-      {/* Motivational Tip Card */}
-      <View style={styles.tipCard}>
-        <Text style={styles.tipEmoji}>💡</Text>
-        <Text style={styles.tipText}>
-          You can change your daily goal anytime in your profile settings.
-        </Text>
-      </View>
-
-      {/* Bottom Sticky Action Area */}
-      <View style={styles.bottomSection}>
-        <PrimaryButton
-          title="Continue"
-          size="large"
-          onPress={handleContinue}
+        <Header
+          showBack={true}
+          onBack={() => router.push("/(onboarding)/course-details")}
+          transparent={true}
         />
-      </View>
-    </ScreenContainer>
+
+        {/* Top Trophy Icon */}
+        <View style={styles.headerSection}>
+          <View style={styles.trophyCircle}>
+            <Ionicons name="trophy" size={32} color={colors.reward} />
+          </View>
+          <Text style={styles.heading}>Daily Goal</Text>
+          <Text style={styles.subtitle}>Set your daily learning goal</Text>
+        </View>
+
+        {/* Goal Cards */}
+        <View style={styles.goalsList}>
+          {DAILY_GOALS.map((goal) => (
+            <GoalCard
+              key={goal.id}
+              goal={goal}
+              selected={selectedGoalId === goal.id}
+              onPress={(item) => setDailyGoalId(item.id)}
+            />
+          ))}
+        </View>
+
+        {/* Motivational Tip Glass Card */}
+        <View style={styles.tipCard}>
+          <View pointerEvents="none" style={styles.glassTopEdge} />
+          <Text style={styles.tipEmoji}>💡</Text>
+          <Text style={styles.tipText}>
+            You can change your daily goal anytime in your profile settings.
+          </Text>
+        </View>
+
+        {/* Bottom Sticky Action Area */}
+        <View style={styles.bottomSection}>
+          <PrimaryButton
+            title="Continue"
+            size="large"
+            onPress={handleContinue}
+          />
+        </View>
+      </ScreenContainer>
 
       <CustomAlertModal
         visible={alertVisible}
@@ -121,6 +122,14 @@ export default function DailyGoalScreen() {
 }
 
 const styles = StyleSheet.create({
+  glassTopEdge: {
+    position: "absolute",
+    top: 0,
+    left: 1,
+    right: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.70)",
+  },
   headerSection: {
     alignItems: "center",
     marginTop: spacing.xs,
@@ -130,24 +139,25 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.rewardLight,
+    backgroundColor: "rgba(247,183,24,0.12)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
-    borderWidth: 2,
-    borderColor: "#FFEAA3",
-    ...shadows.subtle,
+    borderWidth: 1.2,
+    borderColor: "rgba(247,183,24,0.30)",
   },
   heading: {
     ...typography.hero,
     color: colors.textPrimary,
     textAlign: "center",
+    fontWeight: "900",
   },
   subtitle: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
     textAlign: "center",
     marginTop: 4,
+    fontWeight: "600",
   },
   goalsList: {
     width: "100%",
@@ -156,13 +166,15 @@ const styles = StyleSheet.create({
   tipCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.backgroundPurple,
+    backgroundColor: "rgba(104,71,245,0.04)",
     padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.primarySurface,
+    borderRadius: 16,
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.16)",
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
+    position: "relative",
+    overflow: "hidden",
   },
   tipEmoji: {
     fontSize: 20,
@@ -173,6 +185,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flex: 1,
     lineHeight: 18,
+    fontWeight: "600",
   },
   bottomSection: {
     width: "100%",

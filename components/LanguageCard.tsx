@@ -10,7 +10,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { LanguageOption, colors, dimensions, radius, shadows, typography } from "../constant/constant";
+import { LanguageOption, colors, dimensions, radius, typography } from "../constant/constant";
 
 export interface LanguageCardProps {
   language: LanguageOption;
@@ -58,10 +58,11 @@ export const LanguageCard: React.FC<LanguageCardProps> = ({
             style,
           ]}
         >
+          <View pointerEvents="none" style={styles.glassTopEdge} />
           <View style={styles.gridFlagContainer}>
             <Text style={styles.gridFlagText}>{language.flag}</Text>
           </View>
-          <Text style={[styles.gridName, selected && styles.textSelected]}>
+          <Text style={[styles.gridName, selected && styles.textSelected]} numberOfLines={1}>
             {language.name}
           </Text>
           {selected ? (
@@ -86,6 +87,7 @@ export const LanguageCard: React.FC<LanguageCardProps> = ({
           style,
         ]}
       >
+        <View pointerEvents="none" style={styles.glassTopEdge} />
         <View style={styles.leftSection}>
           <View style={styles.flagCircle}>
             <Text style={styles.flagText}>{language.flag}</Text>
@@ -103,10 +105,10 @@ export const LanguageCard: React.FC<LanguageCardProps> = ({
         <View style={styles.rightSection}>
           {selected ? (
             <View style={styles.checkBadge}>
-              <Ionicons name="checkmark" size={16} color={colors.white} />
+              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
             </View>
           ) : (
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
           )}
         </View>
       </Pressable>
@@ -115,25 +117,33 @@ export const LanguageCard: React.FC<LanguageCardProps> = ({
 };
 
 const styles = StyleSheet.create({
+  glassTopEdge: {
+    position: "absolute",
+    top: 0,
+    left: 1,
+    right: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.70)",
+  },
   card: {
     height: dimensions.languageCardHeight,
     borderRadius: radius.card,
-    borderWidth: 1.5,
+    borderWidth: 1.2,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     marginBottom: 12,
-    backgroundColor: colors.white,
-    ...shadows.subtle,
+    position: "relative",
+    overflow: "hidden",
   },
   cardDefault: {
-    borderColor: colors.border,
+    backgroundColor: "rgba(104,71,245,0.035)",
+    borderColor: "rgba(104,71,245,0.16)",
   },
   cardSelected: {
+    backgroundColor: "rgba(104,71,245,0.09)",
     borderColor: colors.primary,
-    backgroundColor: colors.primarySurface,
-    ...shadows.cardSelected,
   },
   leftSection: {
     flexDirection: "row",
@@ -141,25 +151,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   flagCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.white,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(104,71,245,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(104,71,245,0.16)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
   },
   flagText: {
-    fontSize: 22,
+    fontSize: 24,
   },
   nameContainer: {
     justifyContent: "center",
   },
   name: {
     ...typography.bodyLarge,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.textPrimary,
   },
   learners: {
@@ -169,7 +179,7 @@ const styles = StyleSheet.create({
   },
   textSelected: {
     color: colors.primary,
-    fontWeight: "800",
+    fontWeight: "900",
   },
   rightSection: {
     marginLeft: 8,
@@ -189,16 +199,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   gridCard: {
-    height: 90,
+    height: 94,
     borderRadius: radius.card,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 1.2,
+    borderColor: "rgba(104,71,245,0.16)",
+    backgroundColor: "rgba(104,71,245,0.035)",
     alignItems: "center",
     justifyContent: "center",
     padding: 12,
     position: "relative",
-    ...shadows.subtle,
+    overflow: "hidden",
   },
   gridFlagContainer: {
     marginBottom: 6,
@@ -210,6 +220,7 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.textPrimary,
     textAlign: "center",
+    fontWeight: "700",
   },
   gridCheckBadge: {
     position: "absolute",
