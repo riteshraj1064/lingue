@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CustomAlertModal } from "../components/CustomAlertModal";
 import {
   AnswerFeedbackSheet,
   AudioResponseQuestion,
@@ -30,7 +31,6 @@ import {
   TranslationQuestion,
   WordBankQuestion,
 } from "../components/lesson";
-import { CustomAlertModal } from "../components/CustomAlertModal";
 import { NoLivesModal } from "../components/NoLivesModal";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { colors, radius, typography } from "../constant/constant";
@@ -751,7 +751,7 @@ export default function LessonScreen() {
           onContinue={async () => {
             await refreshStats?.();
             console.log("Next lesson id:", lessonInfo.id);
-            router.replace(`/ai-teacher/${lessonInfo.id}`);
+            router.replace(`/ai-teacher/${lessonInfo.id}` as any);
           }}
         />
       </SafeAreaView>

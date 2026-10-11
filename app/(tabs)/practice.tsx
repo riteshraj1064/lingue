@@ -199,10 +199,10 @@ export default function FreeTeacherSetupScreen() {
             </View>
           </View>
 
-          <View style={styles.headerTimerPill}>
+          {/* <View style={styles.headerTimerPill}>
             <Ionicons name="time-outline" size={14} color={COLORS.purple} />
             <Text style={styles.headerTimerText}>2:00 Limit</Text>
-          </View>
+          </View> */}
         </View>
 
         <ScrollView

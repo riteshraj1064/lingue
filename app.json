@@ -13,7 +13,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone."
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone for calls.",
+        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to use the camera for video calls."
       }
     },
     "android": {
@@ -26,7 +27,9 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "package": "app.ritesh.com"
     },
@@ -55,8 +58,8 @@
       "expo-status-bar",
       "expo-web-browser",
       "expo-speech-recognition",
-      "@livekit/react-native-expo-plugin",
-      "@config-plugins/react-native-webrtc"
+      "@config-plugins/react-native-webrtc",
+      "@stream-io/video-react-native-sdk"
     ],
     "experiments": {
       "typedRoutes": true,

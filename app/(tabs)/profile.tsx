@@ -174,23 +174,20 @@ export default function ProfileScreen() {
     selectedTargetLang,
     selectedNativeLang,
     stats,
-    resetAll,
     logout,
   } = useApp();
-
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loadingAchievements, setLoadingAchievements] =
     useState<boolean>(true);
+  const [league, setLeague] = useState<any>(null);
 
-  const handleReset = async () => {
-    await resetAll();
-    router.replace("/splash");
-  };
+
 
   const handleLogout = async () => {
     await logout();
     router.replace("/(auth)/login");
   };
+
 
   useEffect(() => {
     async function fetchAchievements() {
@@ -211,6 +208,17 @@ export default function ProfileScreen() {
       }
     }
 
+
+    const loadLeague = async () => {
+      const { data, error } = await supabase.rpc('get_my_league_status');
+
+      if (error) {
+        console.error(error);
+      } else {
+        setLeague(data);
+      }
+    }
+    loadLeague()
     fetchAchievements();
   }, [user]);
 
@@ -481,7 +489,7 @@ export default function ProfileScreen() {
                     minimumFontScale={0.6}
                     style={styles.statValueText}
                   >
-                    Diamond
+                    {league ? league.league_name : "Bronze"}
                   </Text>
                   <Text numberOfLines={1} style={styles.statLabelText}>
                     Current league
@@ -492,14 +500,14 @@ export default function ProfileScreen() {
               {/* Top 3 */}
               <View style={styles.statBox}>
                 <View style={[styles.statIconPod, styles.greenPod]}>
-                  <Ionicons name="medal" size={23} color={COLORS.green} />
+                  <Ionicons name="diamond" size={23} color={COLORS.green} />
                 </View>
                 <View style={styles.statTextContainer}>
                   <Text numberOfLines={1} style={styles.statValueText}>
-                    3
+                    {stats.gems}
                   </Text>
                   <Text numberOfLines={1} style={styles.statLabelText}>
-                    Top 3 finishes
+                    Gems
                   </Text>
                 </View>
               </View>

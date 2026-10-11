@@ -15,6 +15,10 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppProvider } from "../context/AppContext";
 
+
+
+// Initialize Stream Video SDK globals (WebRTC polyfills etc.)
+
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync().catch(() => { });
 

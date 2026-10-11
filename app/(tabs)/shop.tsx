@@ -39,6 +39,12 @@ export interface ShopItem {
   metadata: any;
 }
 
+interface XpBoostStatus {
+  active: boolean;
+  multiplier: number;
+  until: string | null; // ISO timestamp
+}
+
 /* ============================================================
    COLOR PALETTE (REF: LessonStartView / Profile)
 ============================================================ */
@@ -57,6 +63,51 @@ const COLORS = {
   danger: "#FF4B4B",
   white: "#FFFFFF",
 };
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "Expired";
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+/* ============================================================
+   XP BOOST COUNTDOWN BUTTON
+============================================================ */
+
+function XpBoostActiveButton({ until }: { until: string }) {
+  const [msLeft, setMsLeft] = useState(() =>
+    Math.max(0, new Date(until).getTime() - Date.now())
+  );
+
+  useEffect(() => {
+    if (msLeft <= 0) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, new Date(until).getTime() - Date.now());
+      setMsLeft(remaining);
+      if (remaining <= 0) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [until]);
+
+  return (
+    <View style={styles.boostActiveButton}>
+      <Ionicons name="flash" size={13} color={COLORS.gold} />
+      <View>
+        <Text style={styles.boostActiveLabel}>Active</Text>
+        <Text style={styles.boostActiveTimer}>{formatCountdown(msLeft)}</Text>
+      </View>
+    </View>
+  );
+}
 
 /* ============================================================
    TRANSLUCENT GLASS CARD COMPONENT
@@ -89,6 +140,7 @@ export default function ShopScreen() {
   const horizontalPadding = isNarrow ? 10 : 12;
 
   const [items, setItems] = useState<ShopItem[]>([]);
+  const [xpBoost, setXpBoost] = useState<XpBoostStatus | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [purchasingItemId, setPurchasingItemId] = useState<number | null>(null);
 
@@ -131,6 +183,10 @@ export default function ShopScreen() {
         if (data) {
           console.log("data from fetch data shop", data);
           setItems(data?.items as ShopItem[]);
+          // Store xp_boost status from response
+          if (data?.xp_boost) {
+            setXpBoost(data.xp_boost as XpBoostStatus);
+          }
         }
       } catch (error) {
         console.log(error);
@@ -193,6 +249,14 @@ export default function ShopScreen() {
 
       await refreshStats();
 
+      // If XP boost was purchased, refresh shop data to get updated boost status
+      if (item.item_type === "XP_BOOST") {
+        const { data: shopData } = await supabase.rpc("get_shop");
+        if (shopData?.xp_boost) {
+          setXpBoost(shopData.xp_boost as XpBoostStatus);
+        }
+      }
+
       const successMsg =
         (typeof data === "object" && data?.message) ||
         `You bought ${item.name} for ${item.gem_price} gems!`;
@@ -244,6 +308,12 @@ export default function ShopScreen() {
         };
     }
   };
+
+  // Determine if an XP boost item is currently active
+  const isXpBoostActive =
+    xpBoost?.active === true &&
+    xpBoost.until != null &&
+    new Date(xpBoost.until).getTime() > Date.now();
 
   return (
     <ScreenContainer
@@ -330,6 +400,22 @@ export default function ShopScreen() {
                 <Text style={styles.balanceValue}>{stats?.lives ?? 5}/5</Text>
                 <Text style={styles.balanceLabel}>Current Lives</Text>
               </View>
+
+              {/* XP BOOST STATUS pill (only shown if active) */}
+              {isXpBoostActive && xpBoost?.until && (
+                <>
+                  <View style={styles.bannerDivider} />
+                  <View style={styles.balanceItem}>
+                    <View style={[styles.balanceIconPod, styles.goldPod]}>
+                      <Ionicons name="flash" size={20} color={COLORS.gold} />
+                    </View>
+                    <Text style={[styles.balanceValue, { color: COLORS.gold }]}>
+                      {xpBoost.multiplier}x XP
+                    </Text>
+                    <Text style={styles.balanceLabel}>Boost Active</Text>
+                  </View>
+                </>
+              )}
             </View>
           </Glass>
 
@@ -357,68 +443,93 @@ export default function ShopScreen() {
             ) : (
               items.map((item) => {
                 const iconProps = getIconProps(item.item_type);
-                const canAfford = stats.gems >= item.gem_price;
 
+                // Check if this specific item is an XP boost that's currently active
+                const isThisBoostActive =
+                  item.item_type === "XP_BOOST" && isXpBoostActive;
+
+                const canAfford = stats.gems >= item.gem_price;
                 const isPurchasing = purchasingItemId === item.id;
-                const isDisabled = !canAfford || isPurchasing;
+                // Disabled if: boost already active, can't afford, or currently purchasing
+                const isDisabled = isThisBoostActive || !canAfford || isPurchasing;
 
                 return (
                   <Glass key={item.id} style={styles.itemCardGlass}>
+                    {/* Active boost glow overlay */}
+                    {isThisBoostActive && (
+                      <View pointerEvents="none" style={styles.boostActiveOverlay} />
+                    )}
                     <View style={styles.cardRow}>
                       <View
                         style={[
                           styles.iconContainerOuter,
-                          { borderColor: iconProps.borderColor },
+                          { borderColor: isThisBoostActive ? COLORS.gold : iconProps.borderColor },
                         ]}
                       >
                         <View
                           style={[
                             styles.iconContainerInner,
-                            { backgroundColor: iconProps.bgColor },
+                            {
+                              backgroundColor: isThisBoostActive
+                                ? "rgba(247,183,24,0.18)"
+                                : iconProps.bgColor,
+                            },
                           ]}
                         >
                           <Ionicons
                             name={iconProps.name}
                             size={26}
-                            color={iconProps.color}
+                            color={isThisBoostActive ? COLORS.gold : iconProps.color}
                           />
                         </View>
                       </View>
 
                       <View style={styles.itemInfo}>
-                        <Text style={styles.itemName}>{item.name}</Text>
+                        <View style={styles.itemNameRow}>
+                          <Text style={styles.itemName}>{item.name}</Text>
+                          {isThisBoostActive && (
+                            <View style={styles.activePill}>
+                              <Text style={styles.activePillText}>ACTIVE</Text>
+                            </View>
+                          )}
+                        </View>
                         <Text style={styles.itemDesc}>{item.description}</Text>
                       </View>
 
-                      <TouchableOpacity
-                        activeOpacity={0.78}
-                        disabled={isDisabled}
-                        style={[
-                          styles.buyButton,
-                          isDisabled && styles.buyButtonDisabled,
-                        ]}
-                        onPress={() => handlePurchase(item)}
-                      >
-                        {isPurchasing ? (
-                          <ActivityIndicator size="small" color={COLORS.white} />
-                        ) : (
-                          <>
-                            <Ionicons
-                              name="diamond"
-                              size={14}
-                              color={canAfford ? COLORS.white : COLORS.textMuted}
-                            />
-                            <Text
-                              style={[
-                                styles.buyButtonText,
-                                !canAfford && styles.buyButtonTextDisabled,
-                              ]}
-                            >
-                              {item.gem_price}
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
+                      {/* Buy button or active boost timer */}
+                      {isThisBoostActive && xpBoost?.until ? (
+                        <XpBoostActiveButton until={xpBoost.until} />
+                      ) : (
+                        <TouchableOpacity
+                          activeOpacity={0.78}
+                          disabled={isDisabled}
+                          style={[
+                            styles.buyButton,
+                            isDisabled && styles.buyButtonDisabled,
+                          ]}
+                          onPress={() => handlePurchase(item)}
+                        >
+                          {isPurchasing ? (
+                            <ActivityIndicator size="small" color={COLORS.white} />
+                          ) : (
+                            <>
+                              <Ionicons
+                                name="diamond"
+                                size={14}
+                                color={canAfford ? COLORS.white : COLORS.textMuted}
+                              />
+                              <Text
+                                style={[
+                                  styles.buyButtonText,
+                                  !canAfford && styles.buyButtonTextDisabled,
+                                ]}
+                              >
+                                {item.gem_price}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </Glass>
                 );
@@ -620,6 +731,13 @@ const styles = StyleSheet.create({
     padding: 14,
   },
 
+  boostActiveOverlay: {
+    //@ts-ignore
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(247,183,24,0.04)",
+    zIndex: 1,
+  },
+
   cardRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -649,10 +767,33 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
 
+  itemNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+
   itemName: {
     fontSize: 15.5,
     fontWeight: "800",
     color: COLORS.text,
+  },
+
+  activePill: {
+    backgroundColor: "rgba(247,183,24,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(247,183,24,0.40)",
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+
+  activePillText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: COLORS.gold,
+    letterSpacing: 0.5,
   },
 
   itemDesc: {
@@ -686,6 +827,34 @@ const styles = StyleSheet.create({
 
   buyButtonTextDisabled: {
     color: COLORS.textMuted,
+  },
+
+  // XP Boost active button (replaces buy button)
+  boostActiveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(247,183,24,0.12)",
+    borderWidth: 1.2,
+    borderColor: "rgba(247,183,24,0.35)",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minWidth: 72,
+  },
+
+  boostActiveLabel: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: COLORS.gold,
+    letterSpacing: 0.4,
+  },
+
+  boostActiveTimer: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginTop: 1,
   },
 
   loadingContainer: {

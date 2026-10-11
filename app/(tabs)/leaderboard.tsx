@@ -1,6 +1,5 @@
 // app/(tabs)/leaderboard.tsx
 
-import GamificationBar from "@/components/GamificationBar";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { supabase } from "@/services/supabase";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,9 +18,8 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
-  View,
+  View
 } from "react-native";
 import { useApp } from "../../context/AppContext";
 
@@ -227,7 +225,7 @@ export default function LeaderboardScreen() {
   /* Header Component */
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      <GamificationBar />
+
       <Glass style={styles.leagueBannerGlass}>
         <View style={styles.leagueRow}>
           {league && (

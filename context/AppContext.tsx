@@ -104,7 +104,6 @@ interface AppContextType {
 
   completeOnboarding: () => Promise<void>;
 
-  resetAll: () => Promise<void>;
 
   refillLives: (amount?: number) => Promise<boolean>;
   buyLivesWithGems: (
@@ -288,6 +287,7 @@ export function AppProvider({
         data,
         error,
       } = await supabase.rpc("get_user_stats");
+
 
       if (error) {
         console.error(
@@ -609,30 +609,9 @@ export function AppProvider({
     await loadStats();
   };
 
-  /* ==========================================================
-     RESET EVERYTHING
-  ========================================================== */
 
-  const resetAll = async () => {
-    await Promise.all([
-      storageService.clearAll(),
-      authService.signOut(),
-    ]);
 
-    setSelectedCourse(null);
 
-    setSession(null);
-
-    setUser(null);
-
-    setSelectedTargetLang(DEFAULT_TARGET_LANG);
-
-    setSelectedNativeLang(DEFAULT_NATIVE_LANG);
-
-    setSelectedGoalId("regular");
-
-    setStats(defaultStats);
-  };
 
   /* ==========================================================
      LIVES & SHOP REFILL HELPERS
@@ -794,7 +773,6 @@ export function AppProvider({
 
         completeOnboarding,
 
-        resetAll,
       }}
     >
       {children}
