@@ -1,5 +1,6 @@
 // app/(tabs)/shop.tsx
 
+import { AdBanner } from "@/components/AdBanner";
 import { CustomAlertButton, CustomAlertModal } from "@/components/CustomAlertModal";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { supabase } from "@/services/supabase";
@@ -23,6 +24,8 @@ import {
   View,
 } from "react-native";
 import { useApp } from "../../context/AppContext";
+
+
 
 /* ============================================================
    TYPES
@@ -380,6 +383,8 @@ export default function ShopScreen() {
             </TouchableOpacity>
           </View>
 
+
+
           {/* HERO BALANCES BANNER */}
           <Glass style={styles.heroBannerGlass}>
             <View style={styles.heroBannerRow}>
@@ -536,6 +541,9 @@ export default function ShopScreen() {
               })
             )}
           </View>
+
+          {/* SPONSORED AD BANNER (Automatically hidden if user has active premium plan) */}
+          <AdBanner style={{ marginHorizontal: 0, marginTop: 12 }} />
 
           <View style={{ height: 40 }} />
         </ScrollView>

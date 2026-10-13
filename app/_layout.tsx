@@ -12,6 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import mobileAds from 'react-native-google-mobile-ads';
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppProvider } from "../context/AppContext";
 
@@ -34,11 +35,19 @@ export default function RootLayout() {
     if (fontsLoaded) {
       SplashScreen.hideAsync().catch(() => { });
     }
+
+    mobileAds()
+      .initialize()
+      .then(adapterStatuses => {
+        console.log('AdMob initialized successfully', adapterStatuses);
+      });
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
     return null;
   }
+
+
 
   return (
     <GestureHandlerRootView
@@ -61,6 +70,7 @@ export default function RootLayout() {
               <Stack.Screen name="(onboarding)" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="lesson" />
+              <Stack.Screen name="plans" />
             </Stack>
 
           </View>

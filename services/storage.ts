@@ -93,6 +93,36 @@ export const storageService = {
     }
   },
 
+  // Subscription Entitlement Storage
+  async getSubscriptionEntitlement<T = any>(): Promise<T | null> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.SUBSCRIPTION_ENTITLEMENT);
+      return data ? JSON.parse(data) : null;
+    } catch (e) {
+      console.error("Error reading subscription entitlement:", e);
+      return null;
+    }
+  },
+
+  async saveSubscriptionEntitlement(entitlement: any): Promise<void> {
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.SUBSCRIPTION_ENTITLEMENT,
+        JSON.stringify(entitlement)
+      );
+    } catch (e) {
+      console.error("Error saving subscription entitlement:", e);
+    }
+  },
+
+  async clearSubscriptionEntitlement(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.SUBSCRIPTION_ENTITLEMENT);
+    } catch (e) {
+      console.error("Error clearing subscription entitlement:", e);
+    }
+  },
+
   // Clear everything for testing/reset
   async clearAll(): Promise<void> {
     try {

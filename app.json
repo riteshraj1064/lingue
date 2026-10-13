@@ -59,7 +59,14 @@
       "expo-web-browser",
       "expo-speech-recognition",
       "@config-plugins/react-native-webrtc",
-      "@stream-io/video-react-native-sdk"
+      "@stream-io/video-react-native-sdk",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-9842032709789426~3689729843",
+          "iosAppId": "ca-app-pub-9842032709789426~9768976474"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -71,5 +78,9 @@
         "projectId": "e8947ede-b910-48be-aa12-4ed44cad7a9c"
       }
     }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-9842032709789426~3689729843",
+    "ios_app_id": "ca-app-pub-9842032709789426~9768976474"
   }
 }

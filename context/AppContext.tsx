@@ -22,6 +22,10 @@ const DEFAULT_NATIVE_LANG: LanguageOption = {
 
 import { AuthResponse, authService } from "../services/authService";
 import {
+  fetchSubscriptionEntitlement,
+  SubscriptionEntitlement,
+} from "../services/razorpaySubscriptions";
+import {
   SelectedCourse,
   storageService,
 } from "../services/storage";
@@ -84,6 +88,10 @@ interface AppContextType {
   selectedGoalId: string;
 
   stats: UserStats;
+
+  entitlement: SubscriptionEntitlement | null;
+  isPremium: boolean;
+  refreshEntitlement: () => Promise<SubscriptionEntitlement | null>;
 
   setTargetLanguage: (lang: LanguageOption) => void;
   setNativeLanguage: (lang: LanguageOption) => void;
@@ -154,6 +162,27 @@ export function AppProvider({
   const [stats, setStats] =
     useState<UserStats>(defaultStats);
 
+  const [entitlement, setEntitlement] =
+    useState<SubscriptionEntitlement | null>(null);
+
+  /* ==========================================================
+     SYNC ENTITLEMENT WITH BACKEND & LOCAL STORAGE
+  ========================================================== */
+
+  const refreshEntitlement = useCallback(async (): Promise<SubscriptionEntitlement | null> => {
+    try {
+      const serverEnt = await fetchSubscriptionEntitlement(supabase);
+      if (serverEnt) {
+        setEntitlement(serverEnt);
+        await storageService.saveSubscriptionEntitlement(serverEnt);
+        return serverEnt;
+      }
+    } catch (e) {
+      console.log("[AppContext] Could not fetch server entitlement:", e);
+    }
+    return null;
+  }, []);
+
   /* ==========================================================
      LOAD INITIAL APP STATE
   ========================================================== */
@@ -167,10 +196,12 @@ export function AppProvider({
           savedCourse,
           initialSession,
           savedGoal,
+          savedEntitlement,
         ] = await Promise.all([
           storageService.getSelectedCourse(),
           authService.getSession(),
           storageService.getDailyGoal(),
+          storageService.getSubscriptionEntitlement<SubscriptionEntitlement>(),
         ]);
 
         if (!mounted) return;
@@ -186,6 +217,15 @@ export function AppProvider({
 
         if (savedGoal) {
           setSelectedGoalId(savedGoal);
+        }
+
+        if (savedEntitlement) {
+          setEntitlement(savedEntitlement);
+        }
+
+        // When app starts, fetch fresh entitlement if logged in & sync local storage
+        if (initialSession?.user) {
+          refreshEntitlement().catch(() => {});
         }
       } catch (error) {
         console.error(
@@ -204,7 +244,7 @@ export function AppProvider({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [refreshEntitlement]);
 
   /* ==========================================================
      AUTH STATE LISTENER
@@ -485,11 +525,13 @@ export function AppProvider({
       await Promise.all([
         authService.signOut(),
         storageService.clearSelectedCourse(),
+        storageService.clearSubscriptionEntitlement(),
       ]);
     } finally {
       setSession(null);
       setUser(null);
       setSelectedCourse(null);
+      setEntitlement(null);
 
       /*
        * Important:
@@ -741,6 +783,10 @@ export function AppProvider({
         selectedGoalId,
 
         stats,
+
+        entitlement,
+        isPremium: Boolean(entitlement?.isPremium),
+        refreshEntitlement,
 
         setTargetLanguage:
           setSelectedTargetLang,

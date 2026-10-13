@@ -343,6 +343,7 @@ export const STORAGE_KEYS = {
   USER_PROFILE: "user_profile",
   DAILY_GOAL: "daily_goal",
   ONBOARDING_COMPLETED: "onboarding_completed",
+  SUBSCRIPTION_ENTITLEMENT: "subscription_entitlement",
 } as const;
 
 export default {

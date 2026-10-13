@@ -691,7 +691,19 @@ export default function ProfileScreen() {
             </TouchableOpacity>
 
             <View style={styles.actionDivider} /> */}
-
+            <TouchableOpacity activeOpacity={0.75}
+              onPress={() => router.push("/plans")}
+              style={styles.actionRowBtn}>
+              <View style={[styles.actionIconPod, styles.purplePod]}>
+                <Ionicons name="settings-outline" size={18} color={COLORS.purple} />
+              </View>
+              <Text style={styles.actionRowText}>Plans</Text>
+              <Ionicons
+                name="chevron-forward"
+                size={17}
+                color={COLORS.textSecondary}
+              />
+            </TouchableOpacity>
             {/* App Settings */}
             <TouchableOpacity activeOpacity={0.75} style={styles.actionRowBtn}>
               <View style={[styles.actionIconPod, styles.purplePod]}>

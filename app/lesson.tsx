@@ -3,8 +3,9 @@ import { supabase } from "@/services/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -35,6 +36,7 @@ import { NoLivesModal } from "../components/NoLivesModal";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { colors, radius, typography } from "../constant/constant";
 import { useApp } from "../context/AppContext";
+import { useRewardedAd } from "../hooks/useRewardedAd";
 
 // ─── Default Lesson Data based on server schema with static fallbacks ───
 const DEFAULT_LESSON_INFO: LessonInfo = {
@@ -217,10 +219,310 @@ function mapServerQuestionToClient(raw: any): LessonQuestion {
   }
 }
 
+/* ============================================================
+   AD GATE SCREEN
+   Shows a rewarded ad between quiz completion and the result
+   screen. Auto-advances after the ad is watched or skipped.
+============================================================ */
+
+interface AdGateProps {
+  onAdFinished: () => void;
+  earnedXp: number;
+}
+
+function AdGateScreen({ onAdFinished, earnedXp }: AdGateProps) {
+  const [skipCountdown, setSkipCountdown] = useState(10);
+  const [canSkip, setCanSkip] = useState(false);
+  const [adShown, setAdShown] = useState(false);
+
+  const { isReady, isLoading, isRewarded, status, showAd } = useRewardedAd({
+    onRewarded: () => {
+      // Reward earned — proceed to complete screen after brief moment
+      setTimeout(() => onAdFinished(), 800);
+    },
+    onClosed: () => {
+      // Ad closed (watched or skipped mid-ad) — proceed
+      setTimeout(() => onAdFinished(), 400);
+    },
+  });
+
+  // Countdown timer → allow skip after 10 s
+  useEffect(() => {
+    if (skipCountdown <= 0) {
+      setCanSkip(true);
+      return;
+    }
+    const t = setTimeout(() => setSkipCountdown((p) => p - 1), 1000);
+    return () => clearTimeout(t);
+  }, [skipCountdown]);
+
+  // Auto-show ad as soon as it's ready
+  useEffect(() => {
+    if (isReady && !adShown) {
+      setAdShown(true);
+      showAd();
+    }
+  }, [isReady, adShown]);
+
+  const accentPurple = "#6847F5";
+  const gold = "#F7B718";
+  const textDark = "#111126";
+  const textMuted = "#626078";
+
+  return (
+    <View style={adGateStyles.container}>
+      {/* Skia-style ambient background */}
+      <View style={adGateStyles.bgGlow1} />
+      <View style={adGateStyles.bgGlow2} />
+
+      <SafeAreaView style={adGateStyles.inner}>
+        {/* XP earned pill */}
+        <View style={adGateStyles.xpPill}>
+          <Ionicons name="flash" size={14} color={gold} />
+          <Text style={adGateStyles.xpPillText}>+{earnedXp} XP Earned!</Text>
+        </View>
+
+        {/* Glass card */}
+        <View style={adGateStyles.glassCard}>
+          <View pointerEvents="none" style={adGateStyles.glassTopEdge} />
+
+          {/* Icon */}
+          <View style={adGateStyles.iconPod}>
+            {isLoading || (status === "idle" && !adShown) ? (
+              <ActivityIndicator size="large" color={accentPurple} />
+            ) : isRewarded ? (
+              <Ionicons name="checkmark-circle" size={48} color="#16C58B" />
+            ) : status === "failed" ? (
+              <Ionicons name="alert-circle-outline" size={48} color="#FF4B4B" />
+            ) : (
+              <Ionicons name="play-circle" size={48} color={accentPurple} />
+            )}
+          </View>
+
+          <Text style={adGateStyles.title}>
+            {isRewarded
+              ? "Reward Earned! 🎉"
+              : status === "failed"
+                ? "Ad Unavailable"
+                : isLoading || (status === "idle" && !adShown)
+                  ? "Preparing your reward…"
+                  : status === "showing"
+                    ? "Watch the ad to earn a bonus!"
+                    : "Almost there!"}
+          </Text>
+
+          <Text style={adGateStyles.subtitle}>
+            {isRewarded
+              ? "Your results are ready."
+              : status === "failed"
+                ? "No ad available. You can continue without watching."
+                : isLoading
+                  ? "Loading your rewarded ad…"
+                  : "Watch a short ad to get a bonus reward, or skip after the timer."}
+          </Text>
+
+          {/* Watch Ad button */}
+          {!isRewarded && status !== "showing" && (
+            <TouchableOpacity
+              activeOpacity={0.82}
+              //@ts-ignore
+              disabled={!isReady || status === "showing"}
+              onPress={() => { if (isReady) showAd(); }}
+              style={[
+                adGateStyles.watchBtn,
+                //@ts-ignore
+                (!isReady || status === "showing") && adGateStyles.watchBtnDisabled,
+              ]}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="play" size={16} color="#fff" />
+                  <Text style={adGateStyles.watchBtnText}>Watch Ad for Bonus</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Divider */}
+          <View style={adGateStyles.divider} />
+
+          {/* Skip button */}
+          <TouchableOpacity
+            activeOpacity={0.75}
+            disabled={!canSkip && !isRewarded && status !== "failed"}
+            onPress={onAdFinished}
+            style={adGateStyles.skipBtn}
+          >
+            {canSkip || isRewarded || status === "failed" ? (
+              <Text style={adGateStyles.skipBtnText}>
+                {isRewarded ? "View Results →" : "Skip & Continue →"}
+              </Text>
+            ) : (
+              <Text style={adGateStyles.skipCountdownText}>
+                Skip in {skipCountdown}s…
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <Text style={adGateStyles.footNote}>
+          Support us with a free ad or upgrade to{" "}
+          <Text style={{ color: accentPurple, fontWeight: "700" }}>Premium</Text>{" "}
+          for an ad-free experience.
+        </Text>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+const adGateStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F5F2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bgGlow1: {
+    position: "absolute",
+    top: -80,
+    right: -60,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: "rgba(111,82,245,0.12)",
+  },
+  bgGlow2: {
+    position: "absolute",
+    bottom: -60,
+    left: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: "rgba(61,205,226,0.10)",
+  },
+  inner: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    width: "100%",
+  },
+  xpPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(247,183,24,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(247,183,24,0.30)",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 24,
+  },
+  xpPillText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#9A6B00",
+  },
+  glassCard: {
+    width: "100%",
+    backgroundColor: "rgba(104,71,245,0.035)",
+    borderWidth: 1,
+    borderColor: "rgba(104,71,245,0.16)",
+    borderRadius: 24,
+    padding: 28,
+    alignItems: "center",
+    position: "relative",
+    overflow: "hidden",
+  },
+  glassTopEdge: {
+    position: "absolute",
+    top: 0,
+    left: 1,
+    right: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.70)",
+  },
+  iconPod: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "rgba(104,71,245,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(104,71,245,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#111126",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#626078",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  watchBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#6847F5",
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    width: "100%",
+    justifyContent: "center",
+  },
+  watchBtnDisabled: {
+    opacity: 0.5,
+  },
+  watchBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  divider: {
+    width: "100%",
+    height: 1,
+    backgroundColor: "rgba(104,71,245,0.10)",
+    marginVertical: 16,
+  },
+  skipBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  skipBtnText: {
+    fontSize: 14,
+    color: "#6847F5",
+    fontWeight: "600",
+  },
+  skipCountdownText: {
+    fontSize: 13,
+    color: "rgba(98,96,120,0.65)",
+    fontWeight: "500",
+  },
+  footNote: {
+    marginTop: 32,
+    fontSize: 12,
+    color: "rgba(98,96,120,0.75)",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+});
+
 export default function LessonScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { stats, refreshStats } = useApp();
+  const { stats, refreshStats, isPremium } = useApp();
 
   // Dynamic lesson metadata state
   const [lessonInfo, setLessonInfo] = useState<LessonInfo>(DEFAULT_LESSON_INFO);
@@ -252,8 +554,9 @@ export default function LessonScreen() {
     getLesson();
   }, [params.lessonId, params.unitTitle]);
 
-  // Screen Stage: "start" | "questions" | "complete"
-  const [stage, setStage] = useState<"start" | "questions" | "complete">("start");
+  // Screen Stage: "start" | "questions" | "ad" | "complete"
+  const [stage, setStage] = useState<"start" | "questions" | "ad" | "complete">("start");
+  const adRewardEarned = useRef(false);
   const [isStartingLesson, setIsStartingLesson] = useState(false);
 
   // Server Session & Questions State
@@ -697,8 +1000,9 @@ export default function LessonScreen() {
     if (currentIndex + 1 < questions.length) {
       setCurrentIndex((prev) => prev + 1);
     } else {
-      // No next question from server and no local ones left → lesson complete
-      setStage("complete");
+      // No next question from server and no local ones left → show ad gate (or skip if premium)
+      adRewardEarned.current = false;
+      setStage(isPremium ? "complete" : "ad");
     }
   };
 
@@ -736,6 +1040,16 @@ export default function LessonScreen() {
           ]}
         />
       </SafeAreaView>
+    );
+  }
+
+  // ─── STAGE 2.5: REWARDED AD GATE ───
+  if (stage === "ad") {
+    return (
+      <AdGateScreen
+        onAdFinished={() => setStage("complete")}
+        earnedXp={earnedXp || lessonInfo.xpReward}
+      />
     );
   }
 
