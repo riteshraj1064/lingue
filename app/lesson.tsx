@@ -526,6 +526,8 @@ export default function LessonScreen() {
 
   // Dynamic lesson metadata state
   const [lessonInfo, setLessonInfo] = useState<LessonInfo>(DEFAULT_LESSON_INFO);
+  const [earnedCoins, setEarnedCoins] = useState<number | null>(null);
+  const [earnedGems, setEarnedGems] = useState<number | null>(null);
 
   useEffect(() => {
     const getLesson = async () => {
@@ -548,7 +550,15 @@ export default function LessonScreen() {
           description: row.description || DEFAULT_LESSON_INFO.description,
           estimatedMinutes: row.estimated_minutes ?? DEFAULT_LESSON_INFO.estimatedMinutes,
           xpReward: row.xp_reward ?? DEFAULT_LESSON_INFO.xpReward,
+          coinsReward: row.coins_reward ?? row.coin_reward ?? row.coins,
+          gemsReward: row.gems_reward ?? row.gem_reward ?? row.gems,
         }));
+        if (typeof (row.coins_reward ?? row.coin_reward ?? row.coins) === "number") {
+          setEarnedCoins(row.coins_reward ?? row.coin_reward ?? row.coins);
+        }
+        if (typeof (row.gems_reward ?? row.gem_reward ?? row.gems) === "number") {
+          setEarnedGems(row.gems_reward ?? row.gem_reward ?? row.gems);
+        }
       }
     };
     getLesson();
@@ -617,6 +627,12 @@ export default function LessonScreen() {
         // Save xp earned if resumed
         if (typeof data.xp_earned === "number") {
           setEarnedXp(data.xp_earned);
+        }
+        if (typeof (data.coins ?? data.coins_earned ?? data.coins_reward) === "number") {
+          setEarnedCoins(data.coins ?? data.coins_earned ?? data.coins_reward);
+        }
+        if (typeof (data.gems ?? data.gems_earned ?? data.gems_reward) === "number") {
+          setEarnedGems(data.gems ?? data.gems_earned ?? data.gems_reward);
         }
         // Parse current question
         if (data.question) {
@@ -889,6 +905,13 @@ export default function LessonScreen() {
         setEarnedXp((prev) => prev + (res.xp as number));
       }
 
+      if (typeof (res.coins_awarded ?? res.coins_earned ?? res.coins) === "number") {
+        setEarnedCoins(res.coins_awarded ?? res.coins_earned ?? res.coins);
+      }
+      if (typeof (res.gems_awarded ?? res.gems_earned ?? res.gems) === "number") {
+        setEarnedGems(res.gems_awarded ?? res.gems_earned ?? res.gems);
+      }
+
       // correct_answer from server is an object { text, option_id, option_ids, options, image_url }
       const correctAnswerPayload = res?.correct_answer as any;
       if (correctAnswerPayload) {
@@ -1055,13 +1078,25 @@ export default function LessonScreen() {
 
   // ─── STAGE 3: LESSON COMPLETE (Card 14) ───
   if (stage === "complete") {
+    const serverXp = earnedXp || lessonInfo.xpReward;
+    const serverCoins =
+      earnedCoins ??
+      lessonInfo.coinsReward ??
+      (stats?.coins ? stats.coins : serverXp);
+    const serverGems =
+      earnedGems ??
+      lessonInfo.gemsReward ??
+      (stats?.gems ? stats.gems : Math.max(1, Math.round(serverXp / 10)));
+
     return (
       <SafeAreaView style={styles.safeArea}>
         <LessonCompleteView
-          xpEarned={earnedXp || lessonInfo.xpReward}
+          xpEarned={serverXp}
           totalQuestions={questions.length}
           accuracy={Math.round((questions.length / (questions.length + (5 - lives))) * 100) || 100}
           timeSpentFormatted="1m 24s"
+          coinsEarned={serverCoins}
+          gemsEarned={serverGems}
           onContinue={async () => {
             await refreshStats?.();
             console.log("Next lesson id:", lessonInfo.id);

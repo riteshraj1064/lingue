@@ -6,8 +6,10 @@ import {
   RoundedRect,
   Shadow,
 } from "@shopify/react-native-skia";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -23,6 +25,7 @@ import {
 import { Confetti } from "../Confetti";
 import { Mascot } from "../Mascot";
 import { PrimaryButton } from "../PrimaryButton";
+import { RewardMysteryBox } from "./RewardMysteryBox";
 
 /* ================================================================
    TYPES
@@ -34,6 +37,8 @@ interface LessonCompleteViewProps {
   accuracy: number;
   timeSpentFormatted: string;
   onContinue: () => void;
+  coinsEarned?: number;
+  gemsEarned?: number;
 }
 
 /* ================================================================
@@ -552,20 +557,17 @@ export const LessonCompleteView: React.FC<
   accuracy = 100,
   timeSpentFormatted = "1m 24s",
   onContinue,
+  coinsEarned,
+  gemsEarned,
 }) => {
     const { width, height } = useWindowDimensions();
+    const [isBoxOpened, setIsBoxOpened] = useState(false);
+    const detailsAnim = useRef(new Animated.Value(0)).current;
 
     const scale = Math.min(
       Math.max(width / 390, 0.9),
       1.08
     );
-
-    /*
-     * Exact numeric stat width.
-     *
-     * IMPORTANT:
-     * Never pass "48%" to Skia.
-     */
 
     const horizontalPadding = 20;
     const columnGap = 12;
@@ -586,24 +588,110 @@ export const LessonCompleteView: React.FC<
     );
 
     const footerHeight = 82;
-
     const buttonHeight = 58;
 
+    const handleBoxOpen = () => {
+      setIsBoxOpened(true);
+      Animated.timing(detailsAnim, {
+        toValue: 1,
+        duration: 550,
+        delay: 350,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    // ─── PHASE 1: UNOPENED (SHOW ONLY THE CENTERED BOX IN THE MIDDLE) ───
+    if (!isBoxOpened) {
+      return (
+        <View style={styles.container}>
+          <GlassBackground width={width} height={height} />
+
+          <View style={styles.centeredBoxWrapper}>
+            {/* Header info */}
+            <View style={styles.centerBoxHeader}>
+              <Text
+                style={[
+                  styles.title,
+                  {
+                    fontSize: 29 * scale,
+                    lineHeight: 35 * scale,
+                  },
+                ]}
+              >
+                Lesson Complete!
+              </Text>
+
+              <Text style={styles.subtitleCenter}>
+                🎁 You unlocked a mystery box! Tap the box to collect your rewards!
+              </Text>
+            </View>
+
+            {/* Centered Mystery Box in the Middle */}
+            <View style={styles.middleBoxContainer}>
+              <RewardMysteryBox
+                xpEarned={xpEarned}
+                coinsEarned={coinsEarned}
+                gemsEarned={gemsEarned}
+                isOpened={false}
+                onOpen={handleBoxOpen}
+                width={width}
+              />
+            </View>
+
+            {/* Bottom Action Button */}
+            <View
+              style={[
+                styles.footer,
+                {
+                  height: buttonHeight,
+                  width: footerWidth,
+                  marginTop: 18,
+                },
+              ]}
+            >
+              <Canvas pointerEvents="none" style={StyleSheet.absoluteFill}>
+                <RoundedRect
+                  x={0}
+                  y={3}
+                  width={footerWidth}
+                  height={buttonHeight - 2}
+                  r={Math.min(
+                    Number(radius.button) || 20,
+                    (buttonHeight - 2) / 2
+                  )}
+                  color="rgba(112,84,246,0.18)"
+                >
+                  <Shadow
+                    dx={0}
+                    dy={5}
+                    blur={15}
+                    color="rgba(112,84,246,0.22)"
+                  />
+                </RoundedRect>
+              </Canvas>
+
+              <PrimaryButton
+                title="Tap Box to Open 🎁"
+                onPress={handleBoxOpen}
+                size="large"
+                style={styles.continueBtn}
+              />
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    // ─── PHASE 2: AFTER COLLECTING REWARD (SHOW COMPLETE QUIZ DETAILS) ───
     return (
       <View style={styles.container}>
-        {/* ==========================================================
-          SKIA BACKGROUND
-      ========================================================== */}
-
+        {/* Skia Background */}
         <GlassBackground
           width={width}
           height={height}
         />
 
-        {/* ==========================================================
-          CONFETTI
-      ========================================================== */}
-
+        {/* Confetti Celebration */}
         <View
           pointerEvents="none"
           style={styles.confetti}
@@ -611,57 +699,59 @@ export const LessonCompleteView: React.FC<
           <Confetti />
         </View>
 
-        {/* ==========================================================
-          CONTENT
-      ========================================================== */}
-
-        <View style={styles.content}>
-          {/* ========================================================
-            HERO
-        ======================================================== */}
-
+        {/* Scrollable Complete Quiz Details */}
+        <ScrollView
+          style={styles.scrollWrapper}
+          contentContainerStyle={[styles.content, { minHeight: height - 50 }]}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
+          {/* Header with Title & Open Reward Chest */}
           <View style={styles.heroSection}>
-            <HeroGlass width={width} />
-
-            <View style={styles.trophyWrapper}>
-              <Text
-                style={[
-                  styles.trophyEmoji,
-                  {
-                    fontSize: 82 * scale,
-                  },
-                ]}
-              >
-                🏆
-              </Text>
-
-              <View style={styles.mascotOverTrophy}>
-                <Mascot
-                  size={90}
-                  pose="celebrating"
-                  floating={true}
-                />
-              </View>
-            </View>
-
             <Text
               style={[
                 styles.title,
                 {
-                  fontSize: 31 * scale,
-                  lineHeight: 38 * scale,
+                  fontSize: 27 * scale,
+                  lineHeight: 33 * scale,
                 },
               ]}
             >
-              Lesson Complete!
+              Rewards Collected! 🎉
             </Text>
+
+            <Text style={styles.subtitle}>
+              Here is your complete lesson summary:
+            </Text>
+
+            {/* Open Box with Coins and Gems */}
+            <RewardMysteryBox
+              xpEarned={xpEarned}
+              coinsEarned={coinsEarned}
+              gemsEarned={gemsEarned}
+              isOpened={true}
+              onOpen={handleBoxOpen}
+              width={width}
+            />
           </View>
 
-          {/* ========================================================
-            STATS
-        ======================================================== */}
-
-          <View style={styles.statsGrid}>
+          {/* COMPLETE QUIZ DETAILS: STATS GRID */}
+          <Animated.View
+            style={[
+              styles.statsGrid,
+              {
+                opacity: detailsAnim,
+                transform: [
+                  {
+                    translateY: detailsAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [16, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
             <StatCard
               width={statWidth}
               icon="star"
@@ -701,18 +791,16 @@ export const LessonCompleteView: React.FC<
               value={timeSpentFormatted}
               label="Time"
             />
-          </View>
+          </Animated.View>
 
-          {/* ========================================================
-            MASCOT FOOTER
-        ======================================================== */}
-
-          <View
+          {/* MASCOT CELEBRATION FOOTER */}
+          <Animated.View
             style={[
               styles.footerNoteWrapper,
               {
                 width: footerWidth,
                 height: footerHeight,
+                opacity: detailsAnim,
               },
             ]}
           >
@@ -725,7 +813,7 @@ export const LessonCompleteView: React.FC<
               <View style={styles.footerMascot}>
                 <Mascot
                   size={46}
-                  pose="happy"
+                  pose="celebrating"
                   floating={false}
                 />
               </View>
@@ -734,20 +822,17 @@ export const LessonCompleteView: React.FC<
 
               <View style={styles.footerNoteText}>
                 <Text style={styles.footerNoteTitle}>
-                  Amazing!
+                  Amazing Job!
                 </Text>
 
                 <Text style={styles.footerNoteSubtitle}>
-                  You've completed this lesson!
+                  You've collected all rewards & completed this quiz!
                 </Text>
               </View>
             </View>
-          </View>
+          </Animated.View>
 
-          {/* ========================================================
-            CONTINUE BUTTON
-        ======================================================== */}
-
+          {/* CONTINUE BUTTON */}
           <View
             style={[
               styles.footer,
@@ -756,8 +841,6 @@ export const LessonCompleteView: React.FC<
               },
             ]}
           >
-            {/* Skia glow */}
-
             <Canvas
               pointerEvents="none"
               style={StyleSheet.absoluteFill}
@@ -789,7 +872,7 @@ export const LessonCompleteView: React.FC<
               style={styles.continueBtn}
             />
           </View>
-        </View>
+        </ScrollView>
       </View>
     );
   };
@@ -801,33 +884,57 @@ export const LessonCompleteView: React.FC<
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "transparent",
+  },
 
-    /*
-     * IMPORTANT:
-     * Background is rendered by Skia.
-     */
+  /* Middle centered box screen */
+  centeredBoxWrapper: {
+    flex: 1,
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 45,
+    paddingBottom: 32,
+  },
 
+  centerBoxHeader: {
+    alignItems: "center",
+    width: "100%",
+  },
+
+  middleBoxContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+
+  subtitleCenter: {
+    ...typography.caption,
+    color: COLORS.muted,
+    textAlign: "center",
+    marginTop: 8,
+    paddingHorizontal: 16,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+
+  /* Complete Quiz details screen */
+  scrollWrapper: {
+    flex: 1,
     backgroundColor: "transparent",
   },
 
   content: {
-    flex: 1,
-
     paddingHorizontal: 20,
-
-    paddingTop: 40,
-
+    paddingTop: 20,
     paddingBottom: 28,
-
     justifyContent: "space-between",
   },
 
   confetti: {
-    ...StyleSheet.absoluteFillObject,
-
+    ...StyleSheet.absoluteFill,
     zIndex: 30,
-
-    elevation: 30,
   },
 
   /* ============================================================
@@ -836,12 +943,18 @@ const styles = StyleSheet.create({
 
   heroSection: {
     alignItems: "center",
-
     position: "relative",
+    marginTop: 6,
+    marginBottom: 6,
+  },
 
-    height: 190,
-
-    marginTop: 10,
+  subtitle: {
+    ...typography.caption,
+    color: COLORS.muted,
+    textAlign: "center",
+    marginTop: 4,
+    marginBottom: 4,
+    fontWeight: "600",
   },
 
   trophyWrapper: {

@@ -1,3 +1,4 @@
+import Mascot from "@/components/Mascot";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Canvas,
@@ -6,7 +7,6 @@ import {
   Rect,
   vec,
 } from "@shopify/react-native-skia";
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -213,10 +213,12 @@ export default function FreeTeacherSetupScreen() {
           {/* Mascot Hero */}
           <View style={styles.mascotHero}>
             <View style={styles.mascotGlow} />
-            <Image
-              source={mascotImage}
-              contentFit="contain"
-              style={styles.setupMascot}
+
+            <Mascot
+              pose="welcoming"
+              isSpeaking={true}
+              speechText={'i am parrot'}
+              size="home"
             />
           </View>
 

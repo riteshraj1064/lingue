@@ -6,7 +6,6 @@ import {
   Rect,
   vec,
 } from "@shopify/react-native-skia";
-import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 // Note: Participant/Track types are no longer needed from livekit-client.
 // Stream SDK manages these internally via LiveTeacherClient.
@@ -24,6 +23,7 @@ import {
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import Mascot from "@/components/Mascot";
 import { useApp } from "@/context/AppContext";
 import { startVisionAgentSession, stopVisionAgentSession } from "@/src/api/teacher/agentSessionApi";
 import { startTeacherSession } from "@/src/api/teacher/teacherApi";
@@ -731,11 +731,8 @@ export default function PracticeCallScreen() {
 
               <View style={styles.endedMascotWrap}>
                 <View style={styles.mascotGlowLarge} />
-                <Image
-                  source={mascotImage}
-                  contentFit="contain"
-                  style={styles.endedMascot}
-                />
+                <Mascot size="small" />
+
               </View>
 
               <View style={styles.endedBadge}>
@@ -996,10 +993,10 @@ export default function PracticeCallScreen() {
               ]}
             />
 
-            <Image
-              source={mascotImage}
-              contentFit="contain"
-              style={styles.mascotCall}
+            <Mascot
+              size='splash'
+              isSpeaking={true}
+
             />
           </View>
 

@@ -9,19 +9,59 @@ import {
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { AppState, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import mobileAds from 'react-native-google-mobile-ads';
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AppProvider } from "../context/AppContext";
+import { AppProvider, useApp } from "../context/AppContext";
+import {
+  cancelAllReminders,
+  configureNotificationHandler,
+  scheduleReminderNotifications,
+  startAppStateRescheduler,
+} from "../services/notificationService";
 
 
 
 // Initialize Stream Video SDK globals (WebRTC polyfills etc.)
 
+// Configure notification foreground behaviour once at module level
+configureNotificationHandler();
+
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync().catch(() => { });
+
+/* ────────────────────────────────────────────────────────────────
+   NOTIFICATION WIRING HOOK
+   - Requests permission on first launch
+   - Schedules 24 h of hourly reminders
+   - Re-schedules every time app comes to foreground (AppState)
+   - Cancels reminders when user completes their daily goal
+──────────────────────────────────────────────────────────────── */
+function useNotifications() {
+  const { stats, isAuthenticated } = useApp();
+  const streakRef = useRef(stats?.streak ?? 0);
+
+  // Keep ref in sync so the AppState callback always has latest streak
+  useEffect(() => {
+    streakRef.current = stats?.streak ?? 0;
+  }, [stats?.streak]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      cancelAllReminders().catch(() => {});
+      return;
+    }
+
+    // Initial schedule when user is logged in
+    scheduleReminderNotifications(streakRef.current).catch(() => {});
+
+    // Re-schedule on every foreground event
+    const cleanup = startAppStateRescheduler(() => streakRef.current);
+    return cleanup;
+  }, [isAuthenticated]);
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -50,11 +90,10 @@ export default function RootLayout() {
 
 
   return (
-    <GestureHandlerRootView
-      style={{ flex: 1 }}
-    >
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AppProvider>
+          <NotificationBridge />
           <View style={styles.container}>
             <StatusBar style="auto" />
             <Stack
@@ -78,6 +117,12 @@ export default function RootLayout() {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
+}
+
+// Thin bridge component so useApp() can be called inside AppProvider
+function NotificationBridge() {
+  useNotifications();
+  return null;
 }
 
 const styles = StyleSheet.create({

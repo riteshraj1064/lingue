@@ -61,6 +61,14 @@
       "@config-plugins/react-native-webrtc",
       "@stream-io/video-react-native-sdk",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#6847F5",
+          "sounds": []
+        }
+      ],
+      [
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-9842032709789426~3689729843",

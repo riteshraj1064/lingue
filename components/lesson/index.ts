@@ -11,4 +11,5 @@ export * from "./TranslationQuestion";
 export * from "./ImageSelectionQuestion";
 export * from "./AudioResponseQuestion";
 export * from "./AnswerFeedbackSheet";
+export * from "./RewardMysteryBox";
 export * from "./LessonCompleteView";

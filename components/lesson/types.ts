@@ -108,4 +108,6 @@ export interface LessonInfo {
   totalQuestions: number;
   estimatedMinutes: number;
   xpReward: number;
+  coinsReward?: number;
+  gemsReward?: number;
 }
