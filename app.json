@@ -74,7 +74,8 @@
           "androidAppId": "ca-app-pub-9842032709789426~3689729843",
           "iosAppId": "ca-app-pub-9842032709789426~9768976474"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

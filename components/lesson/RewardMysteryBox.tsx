@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { soundService } from "../../services/soundService";
 
 const TREASURE_CHEST = require("../../assets/animations/TreasureChest.json");
 const COIN_ANIM = require("../../assets/animations/Stars.json");
@@ -147,8 +148,9 @@ export const RewardMysteryBox: React.FC<RewardMysteryBoxProps> = ({
     if (hasTriggeredOpen) return;
     setHasTriggeredOpen(true);
 
-    // Initial heavy haptic impact
+    // Initial heavy haptic impact & play collect audio
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    soundService.playCollect();
 
     // Chest lid spring & opening
     Animated.sequence([
@@ -209,6 +211,7 @@ export const RewardMysteryBox: React.FC<RewardMysteryBoxProps> = ({
 
     // Reveal reward showcase cards after burst apex
     setTimeout(() => {
+      soundService.playCombo();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
       Animated.parallel([

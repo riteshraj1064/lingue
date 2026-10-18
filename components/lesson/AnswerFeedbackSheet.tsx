@@ -16,6 +16,7 @@ import {
 
 import { Mascot } from "../Mascot";
 import { PrimaryButton } from "../PrimaryButton";
+import { soundService } from "../../services/soundService";
 
 interface AnswerFeedbackSheetProps {
   isCorrect: boolean;
@@ -165,7 +166,10 @@ export const AnswerFeedbackSheet: React.FC<
         <View style={styles.buttonWrapper}>
           <PrimaryButton
             title="Continue"
-            onPress={onContinue}
+            onPress={() => {
+              soundService.playTap();
+              onContinue();
+            }}
             size="large"
             style={styles.continueBtn}
           />

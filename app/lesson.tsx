@@ -6,13 +6,14 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CustomAlertModal } from "../components/CustomAlertModal";
@@ -33,10 +34,10 @@ import {
   WordBankQuestion,
 } from "../components/lesson";
 import { NoLivesModal } from "../components/NoLivesModal";
-import { PrimaryButton } from "../components/PrimaryButton";
-import { colors, radius, typography } from "../constant/constant";
+import { colors } from "../constant/constant";
 import { useApp } from "../context/AppContext";
 import { useRewardedAd } from "../hooks/useRewardedAd";
+import { soundService } from "../services/soundService";
 
 // ─── Default Lesson Data based on server schema with static fallbacks ───
 const DEFAULT_LESSON_INFO: LessonInfo = {
@@ -574,10 +575,14 @@ export default function LessonScreen() {
   const [questions, setQuestions] = useState<LessonQuestion[]>([DEFAULT_SERVER_QUESTION]);
   const [totalQuestionCount, setTotalQuestionCount] = useState<number>(3);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [correctCount, setCorrectCount] = useState<number>(0);
   const [lives, setLives] = useState(stats?.lives ?? 5);
   const [earnedXp, setEarnedXp] = useState(0);
   const [showNoLivesModal, setShowNoLivesModal] = useState(false);
   const [showExitAlert, setShowExitAlert] = useState(false);
+
+  // Animated progress value (0 to 100)
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   // Server feedback overrides
   const [serverCorrectAnswerText, setServerCorrectAnswerText] = useState<string>("");
@@ -599,6 +604,8 @@ export default function LessonScreen() {
       return;
     }
     setIsStartingLesson(true);
+    setCorrectCount(0);
+    progressAnim.setValue(0);
     const targetLessonId = Number(lessonInfo.id || params.lessonId);
     console.log("targetLessonId", targetLessonId);
     try {
@@ -633,6 +640,21 @@ export default function LessonScreen() {
         }
         if (typeof (data.gems ?? data.gems_earned ?? data.gems_reward) === "number") {
           setEarnedGems(data.gems ?? data.gems_earned ?? data.gems_reward);
+        }
+        // Restore correct count for resumed sessions (server may send questions_answered/correct_answers)
+        const resumedCorrect =
+          typeof data.correct_answers === "number"
+            ? data.correct_answers
+            : typeof data.correct_count === "number"
+              ? data.correct_count
+              : typeof data.questions_answered === "number" && typeof data.incorrect_answers === "number"
+                ? Math.max(0, data.questions_answered - data.incorrect_answers)
+                : 0;
+        if (resumedCorrect > 0) {
+          setCorrectCount(resumedCorrect);
+          progressAnim.setValue(
+            Math.min(100, Math.round((resumedCorrect / Math.max(data.question_count ?? 1, 1)) * 100))
+          );
         }
         // Parse current question
         if (data.question) {
@@ -673,8 +695,24 @@ export default function LessonScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentQuestion = questions[currentIndex];
-  const totalCount = Math.max(totalQuestionCount, questions.length, 1);
-  const progressPercent = Math.min(100, ((currentIndex + 1) / totalCount) * 100);
+  const totalCount = Math.max(totalQuestionCount, 1);
+  const progressPercent = Math.min(100, Math.max(0, Math.round((correctCount / totalCount) * 100)));
+
+  // Smoothly animate progress bar whenever progressPercent changes
+  useEffect(() => {
+    Animated.spring(progressAnim, {
+      toValue: progressPercent,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: false,
+    }).start();
+  }, [progressPercent]);
+
+  const animatedWidth = progressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ["0%", "100%"],
+    extrapolate: "clamp",
+  });
 
   // Check if current question has an answer ready to submit
   const isAnswerReady = useMemo(() => {
@@ -874,6 +912,7 @@ export default function LessonScreen() {
     if (!isAnswerReady || isChecked || !currentQuestion) return;
 
     let correct = false;
+    let serverUpdatedHearts = false;
     const attId = attemptId || `demo-${lessonInfo.id}`;
     setIsSubmitting(true);
     try {
@@ -893,6 +932,7 @@ export default function LessonScreen() {
 
       if (typeof res.hearts === "number") {
         setLives(res.hearts);
+        serverUpdatedHearts = true;
       }
 
       // Server returns xp_awarded per question, or total_xp_earned for the session
@@ -954,10 +994,18 @@ export default function LessonScreen() {
     }
 
     if (correct) {
+      soundService.playCorrect();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
+      setCorrectCount((prev) => Math.min(totalCount, prev + 1));
     } else {
+      soundService.playWrong();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => { });
-      setLives((prev) => Math.max(0, prev - 1));
+      if (!serverUpdatedHearts) {
+        setLives((prev) => Math.max(0, prev - 1));
+      }
+      setTimeout(() => {
+        soundService.playHeartLost();
+      }, 350);
     }
 
     setIsCorrect(correct);
@@ -1010,6 +1058,26 @@ export default function LessonScreen() {
     setServerCorrectAnswerText("");
     setServerCorrectOptionIds([]);
     setServerExplanation("");
+
+    // If the question was wrong, re-queue it to the end so user can retry and master it!
+    if (!isCorrect && currentQuestion) {
+      if (nextServerQuestion) {
+        if (String(nextServerQuestion.id) === String(currentQuestion.id)) {
+          // Server already sent this same question for immediate retry
+          setQuestions((prev) => [...prev, nextServerQuestion]);
+        } else {
+          // Server sent another question; place missed question after it to retry later
+          setQuestions((prev) => [...prev, nextServerQuestion, currentQuestion]);
+        }
+        setCurrentIndex((prev) => prev + 1);
+        setNextServerQuestion(null);
+        return;
+      } else {
+        setQuestions((prev) => [...prev, currentQuestion]);
+        setCurrentIndex((prev) => prev + 1);
+        return;
+      }
+    }
 
     // If server provided a next question, append it and advance
     if (nextServerQuestion) {
@@ -1109,236 +1177,318 @@ export default function LessonScreen() {
 
   // ─── STAGE 2: QUESTION SCREEN (Cards 3 to 11 with feedback 12 & 13) ───
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        {/* Top Header: Close, Progress Bar, Hearts */}
-        <View style={styles.topHeader}>
-          {/* Close button */}
-          <TouchableOpacity
-            style={styles.closeBtn}
-            onPress={handleClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="close" size={26} color={colors.textPrimary} />
-          </TouchableOpacity>
-
-          {/* Progress Bar */}
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
-          </View>
-
-          {/* Lives Counter */}
-          <TouchableOpacity
-            style={styles.livesWrapper}
-            activeOpacity={0.8}
-            onPress={() => setShowNoLivesModal(true)}
-          >
-            <Ionicons name="heart" size={22} color={colors.danger} />
-            <Text style={styles.livesText}>{lives}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Scrollable Question Content Area */}
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+    <View style={styles.screenRoot}>
+      {/* Glass ambient gradient blobs */}
+      <View style={styles.bgBlob1} />
+      <View style={styles.bgBlob2} />
+      <View style={styles.bgBlob3} />
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          style={styles.keyboardContainer}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          {/* Dynamic Component Switching Based on Question Type */}
-          {currentQuestion.type === "mcq_single" && (
-            <McqSingleQuestion
-              question={currentQuestion}
-              selectedOptionId={singleChoiceId}
-              onSelect={setSingleChoiceId}
-              isChecked={isChecked}
-              isCorrect={isCorrect}
-              disabled={isChecked}
-            />
-          )}
+          {/* Top Header: Close, Progress Bar, Hearts */}
+          <View style={styles.topHeader}>
+            {/* Close button */}
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={handleClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.72}
+            >
+              <Ionicons name="close" size={20} color={colors.textPrimary} />
+            </TouchableOpacity>
 
-          {currentQuestion.type === "mcq_multi" && (
-            <McqMultiQuestion
-              question={currentQuestion}
-              selectedOptionIds={multiChoiceIds}
-              onToggle={(id) => {
-                setMultiChoiceIds((prev) =>
-                  prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-                );
-              }}
-              isChecked={isChecked}
-              isCorrect={isCorrect}
-              correctOptionIds={serverCorrectOptionIds}
-              disabled={isChecked}
-            />
-          )}
+            {/* Progress Bar Container */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressTrack}>
+                <Animated.View style={[styles.progressFill, { width: animatedWidth }]}>
+                  {/* 3D Gloss Highlight */}
+                  <View style={styles.progressGloss} />
+                  {/* Glowing Leading Cap Dot */}
+                  <View style={styles.progressCapDot} />
+                </Animated.View>
+              </View>
+            </View>
 
-          {currentQuestion.type === "fill_blank" && (
-            <FillInBlankQuestion
-              question={currentQuestion}
-              selectedAnswer={fillBlankWord}
-              onSelect={setFillBlankWord}
-              typedAnswer={fillBlankText}
-              onChangeTyped={setFillBlankText}
-              isChecked={isChecked}
-              isCorrect={isCorrect}
-              disabled={isChecked}
-            />
-          )}
-
-          {currentQuestion.type === "word_bank" && (
-            <WordBankQuestion
-              question={currentQuestion}
-              selectedWords={placedWords}
-              onAddWord={(word) => setPlacedWords((prev) => [...prev, word])}
-              onRemoveWord={(idx) =>
-                setPlacedWords((prev) => prev.filter((_, i) => i !== idx))
-              }
-              isChecked={isChecked}
-              disabled={isChecked}
-            />
-          )}
-
-          {currentQuestion.type === "speaking" && (
-            <SpeakingQuestion
-              question={currentQuestion}
-              isRecorded={isSpeakingRecorded}
-              onRecordComplete={() => setIsSpeakingRecorded(true)}
-              isChecked={isChecked}
-              disabled={isChecked}
-            />
-          )}
-
-          {currentQuestion.type === "listening" && (
-            <ListeningQuestion
-              question={currentQuestion}
-              selectedOptionId={listeningChoiceId}
-              onSelect={setListeningChoiceId}
-              typedAnswer={listeningText}
-              onChangeTyped={setListeningText}
-              isChecked={isChecked}
-              isCorrect={isCorrect}
-              disabled={isChecked}
-            />
-          )}
-
-          {currentQuestion.type === "translation" && (
-            <TranslationQuestion
-              question={currentQuestion}
-              answerText={translationText}
-              onChangeText={setTranslationText}
-              isChecked={isChecked}
-              disabled={isChecked}
-            />
-          )}
-
-          {currentQuestion.type === "image_selection" && (
-            <ImageSelectionQuestion
-              question={currentQuestion}
-              selectedOptionId={imageChoiceId}
-              onSelect={setImageChoiceId}
-              isChecked={isChecked}
-              disabled={isChecked}
-            />
-          )}
-
-          {currentQuestion.type === "audio_response" && (
-            <AudioResponseQuestion
-              question={currentQuestion}
-              answerText={audioResponseText}
-              onChangeText={setAudioResponseText}
-              isChecked={isChecked}
-              disabled={isChecked}
-            />
-          )}
-        </ScrollView>
-
-        {/* Bottom Action Area: Either Check Answer or Feedback Sheet */}
-        {showFeedbackSheet ? (
-          <AnswerFeedbackSheet
-            isCorrect={isCorrect}
-            correctAnswerText={
-              isCorrect
-                ? (
-                  serverCorrectAnswerText ||
-                  (currentQuestion.type === "mcq_single"
-                    ? currentQuestion.options.find((o) => o.id === currentQuestion.correctAnswerId)?.text || "नमस्ते"
-                    : currentQuestion.type === "mcq_multi"
-                      ? currentQuestion.options
-                        .filter((o) =>
-                          (serverCorrectOptionIds.length > 0
-                            ? serverCorrectOptionIds
-                            : currentQuestion.correctAnswerIds || []
-                          ).includes(o.id)
-                        )
-                        .map((o) => o.text)
-                        .join(", ")
-                      : currentQuestion.type === "listening"
-                        ? (currentQuestion.options?.length > 0
-                          ? currentQuestion.options.find((o) => o.id === currentQuestion.correctAnswerId)?.text
-                          : (currentQuestion as any).correctAnswer || (currentQuestion as any).audioText)
-                        : currentQuestion.type === "translation" || currentQuestion.type === "audio_response"
-                          ? currentQuestion.correctAnswer
-                          : currentQuestion.type === "fill_blank"
-                            ? currentQuestion.correctAnswer
-                            : undefined)
-                )
-                : undefined
-            }
-            explanation={serverExplanation || currentQuestion.explanation}
-            xpEarned={currentQuestion.xpReward || 5}
-            onContinue={handleContinueNext}
-          />
-        ) : (
-          <View style={styles.bottomBar}>
-            <PrimaryButton
-              title="Check Answer"
-              onPress={handleCheckAnswer}
-              size="large"
-              loading={isSubmitting}
-              disabled={!isAnswerReady || isSubmitting}
-              style={[
-                styles.checkBtn,
-                (!isAnswerReady || isSubmitting) && styles.checkBtnDisabled,
-              ]}
-            />
+            {/* Lives Counter */}
+            <TouchableOpacity
+              style={styles.livesWrapper}
+              activeOpacity={0.8}
+              onPress={() => setShowNoLivesModal(true)}
+            >
+              <Ionicons name="heart" size={19} color={colors.danger} />
+              <Text style={styles.livesText}>{lives}</Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </KeyboardAvoidingView>
 
-      {/* No Lives Custom Alert Modal (mid-lesson) */}
-      {/* onRefillSuccess resets the current question so user must answer it again */}
-      <NoLivesModal
-        visible={showNoLivesModal}
-        onClose={() => setShowNoLivesModal(false)}
-        onRefillSuccess={() => {
-          setShowNoLivesModal(false);
-          resetCurrentQuestion();
-        }}
-      />
+          {/* Scrollable Question Content Area */}
+          <ScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Dynamic Component Switching Based on Question Type */}
+            {currentQuestion.type === "mcq_single" && (
+              <McqSingleQuestion
+                question={currentQuestion}
+                selectedOptionId={singleChoiceId}
+                onSelect={(id) => {
+                  soundService.playTap();
+                  setSingleChoiceId(id);
+                }}
+                isChecked={isChecked}
+                isCorrect={isCorrect}
+                disabled={isChecked}
+              />
+            )}
 
-      {/* Exit lesson confirmation alert */}
-      <CustomAlertModal
-        visible={showExitAlert}
-        onClose={() => setShowExitAlert(false)}
-        type="confirm"
-        title="Leave Lesson?"
-        message="You'll lose your current progress in this session."
-        buttons={[
-          { text: "Stay", style: "cancel" },
-          { text: "Leave", style: "destructive", onPress: () => router.back() },
-        ]}
-      />
-    </SafeAreaView>
+            {currentQuestion.type === "mcq_multi" && (
+              <McqMultiQuestion
+                question={currentQuestion}
+                selectedOptionIds={multiChoiceIds}
+                onToggle={(id) => {
+                  soundService.playTap();
+                  setMultiChoiceIds((prev) =>
+                    prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+                  );
+                }}
+                isChecked={isChecked}
+                isCorrect={isCorrect}
+                correctOptionIds={serverCorrectOptionIds}
+                disabled={isChecked}
+              />
+            )}
+
+            {currentQuestion.type === "fill_blank" && (
+              <FillInBlankQuestion
+                question={currentQuestion}
+                selectedAnswer={fillBlankWord}
+                onSelect={(word) => {
+                  soundService.playTap();
+                  setFillBlankWord(word);
+                }}
+                typedAnswer={fillBlankText}
+                onChangeTyped={setFillBlankText}
+                isChecked={isChecked}
+                isCorrect={isCorrect}
+                disabled={isChecked}
+              />
+            )}
+
+            {currentQuestion.type === "word_bank" && (
+              <WordBankQuestion
+                question={currentQuestion}
+                selectedWords={placedWords}
+                onAddWord={(word) => {
+                  soundService.playTap();
+                  setPlacedWords((prev) => [...prev, word]);
+                }}
+                onRemoveWord={(idx) => {
+                  soundService.playTap();
+                  setPlacedWords((prev) => prev.filter((_, i) => i !== idx));
+                }}
+                isChecked={isChecked}
+                disabled={isChecked}
+              />
+            )}
+
+            {currentQuestion.type === "speaking" && (
+              <SpeakingQuestion
+                question={currentQuestion}
+                isRecorded={isSpeakingRecorded}
+                onRecordComplete={() => setIsSpeakingRecorded(true)}
+                isChecked={isChecked}
+                disabled={isChecked}
+              />
+            )}
+
+            {currentQuestion.type === "listening" && (
+              <ListeningQuestion
+                question={currentQuestion}
+                selectedOptionId={listeningChoiceId}
+                onSelect={(id) => {
+                  soundService.playTap();
+                  setListeningChoiceId(id);
+                }}
+                typedAnswer={listeningText}
+                onChangeTyped={setListeningText}
+                isChecked={isChecked}
+                isCorrect={isCorrect}
+                disabled={isChecked}
+              />
+            )}
+
+            {currentQuestion.type === "translation" && (
+              <TranslationQuestion
+                question={currentQuestion}
+                answerText={translationText}
+                onChangeText={setTranslationText}
+                isChecked={isChecked}
+                disabled={isChecked}
+              />
+            )}
+
+            {currentQuestion.type === "image_selection" && (
+              <ImageSelectionQuestion
+                question={currentQuestion}
+                selectedOptionId={imageChoiceId}
+                onSelect={(id) => {
+                  soundService.playTap();
+                  setImageChoiceId(id);
+                }}
+                isChecked={isChecked}
+                disabled={isChecked}
+              />
+            )}
+
+            {currentQuestion.type === "audio_response" && (
+              <AudioResponseQuestion
+                question={currentQuestion}
+                answerText={audioResponseText}
+                onChangeText={setAudioResponseText}
+                isChecked={isChecked}
+                disabled={isChecked}
+              />
+            )}
+          </ScrollView>
+
+          {/* Bottom Action Area: Either Check Answer or Feedback Sheet */}
+          {showFeedbackSheet ? (
+            <AnswerFeedbackSheet
+              isCorrect={isCorrect}
+              correctAnswerText={
+                isCorrect
+                  ? (
+                    serverCorrectAnswerText ||
+                    (currentQuestion.type === "mcq_single"
+                      ? currentQuestion.options.find((o) => o.id === currentQuestion.correctAnswerId)?.text || "नमस्ते"
+                      : currentQuestion.type === "mcq_multi"
+                        ? currentQuestion.options
+                          .filter((o) =>
+                            (serverCorrectOptionIds.length > 0
+                              ? serverCorrectOptionIds
+                              : currentQuestion.correctAnswerIds || []
+                            ).includes(o.id)
+                          )
+                          .map((o) => o.text)
+                          .join(", ")
+                        : currentQuestion.type === "listening"
+                          ? (currentQuestion.options?.length > 0
+                            ? currentQuestion.options.find((o) => o.id === currentQuestion.correctAnswerId)?.text
+                            : (currentQuestion as any).correctAnswer || (currentQuestion as any).audioText)
+                          : currentQuestion.type === "translation" || currentQuestion.type === "audio_response"
+                            ? currentQuestion.correctAnswer
+                            : currentQuestion.type === "fill_blank"
+                              ? currentQuestion.correctAnswer
+                              : undefined)
+                  )
+                  : undefined
+              }
+              explanation={serverExplanation || currentQuestion.explanation}
+              xpEarned={currentQuestion.xpReward || 5}
+              onContinue={handleContinueNext}
+            />
+          ) : (
+            <View style={styles.bottomBar}>
+              {/* Top glass edge highlight */}
+              <View style={styles.bottomBarEdge} />
+              <TouchableOpacity
+                activeOpacity={0.82}
+                onPress={() => {
+                  soundService.playTap();
+                  handleCheckAnswer();
+                }}
+                disabled={!isAnswerReady || isSubmitting}
+                style={[
+                  styles.checkBtn,
+                  !isAnswerReady && styles.checkBtnDisabled,
+                ]}
+              >
+                {/* Gloss shimmer layer */}
+                <View style={styles.checkBtnGloss} />
+                <View style={styles.checkBtnContent}>
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={[
+                      styles.checkBtnText,
+                      !isAnswerReady && styles.checkBtnTextDisabled,
+                    ]}>
+                      Check Answer
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+        </KeyboardAvoidingView>
+
+        {/* No Lives Custom Alert Modal (mid-lesson) */}
+        {/* onRefillSuccess resets the current question so user must answer it again */}
+        <NoLivesModal
+          visible={showNoLivesModal}
+          onClose={() => setShowNoLivesModal(false)}
+          onRefillSuccess={() => {
+            setShowNoLivesModal(false);
+            resetCurrentQuestion();
+          }}
+        />
+
+        {/* Exit lesson confirmation alert */}
+        <CustomAlertModal
+          visible={showExitAlert}
+          onClose={() => setShowExitAlert(false)}
+          type="confirm"
+          title="Leave Lesson?"
+          message="You'll lose your current progress in this session."
+          buttons={[
+            { text: "Stay", style: "cancel" },
+            { text: "Leave", style: "destructive", onPress: () => router.back() },
+          ]}
+        />
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+    backgroundColor: "#F5F2FF",
+    position: "relative",
+  },
+  bgBlob1: {
+    position: "absolute",
+    top: -80,
+    right: -60,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: "rgba(111, 82, 245, 0.10)",
+  },
+  bgBlob2: {
+    position: "absolute",
+    bottom: -40,
+    left: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: "rgba(61, 205, 226, 0.09)",
+  },
+  bgBlob3: {
+    position: "absolute",
+    top: "45%",
+    left: "25%",
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: "rgba(104, 71, 245, 0.05)",
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "transparent",
   },
   keyboardContainer: {
     flex: 1,
@@ -1346,52 +1496,145 @@ const styles = StyleSheet.create({
   topHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 14,
+    gap: 12,
   },
   closeBtn: {
-    padding: 2,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(104, 71, 245, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(104, 71, 245, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressContainer: {
+    flex: 1,
+    justifyContent: "center",
   },
   progressTrack: {
-    flex: 1,
-    height: 14,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 7,
+    width: "100%",
+    height: 16,
+    backgroundColor: "rgba(104, 71, 245, 0.07)",
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: "rgba(104, 71, 245, 0.14)",
     overflow: "hidden",
+    position: "relative",
+    justifyContent: "center",
   },
   progressFill: {
     height: "100%",
-    backgroundColor: colors.success,
-    borderRadius: 7,
+    backgroundColor: "#16C58B",
+    borderRadius: 999,
+    position: "relative",
+    overflow: "hidden",
+  },
+  progressGloss: {
+    position: "absolute",
+    top: 2,
+    left: 4,
+    right: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.50)",
+  },
+  progressCapDot: {
+    position: "absolute",
+    right: 3,
+    top: 2,
+    bottom: 2,
+    width: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.38)",
   },
   livesWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(255, 75, 75, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 75, 75, 0.20)",
   },
   livesText: {
-    ...typography.body,
+    fontSize: 15,
     fontWeight: "900",
     color: colors.danger,
-    fontSize: 18,
+  },
+  scrollArea: {
+    flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingTop: 16,
     paddingBottom: 24,
   },
   bottomBar: {
     paddingHorizontal: 20,
     paddingVertical: 16,
+    paddingBottom: 20,
+    backgroundColor: "rgba(245, 242, 255, 0.88)",
     borderTopWidth: 1,
-    borderTopColor: "#F0F0F5",
-    backgroundColor: "#FFFFFF",
+    borderTopColor: "rgba(104, 71, 245, 0.10)",
+    position: "relative",
+    overflow: "hidden",
+  },
+  bottomBarEdge: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.80)",
   },
   checkBtn: {
     width: "100%",
-    borderRadius: radius.button,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: "#6847F5",
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.22)",
+    overflow: "hidden",
+    position: "relative",
+    shadowColor: "#6847F5",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
   },
   checkBtnDisabled: {
-    opacity: 0.45,
+    backgroundColor: "rgba(104, 71, 245, 0.22)",
+    borderColor: "rgba(104, 71, 245, 0.14)",
+  },
+  checkBtnGloss: {
+    position: "absolute",
+    top: 2,
+    left: 8,
+    right: 8,
+    height: "38%",
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+  },
+  checkBtnContent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkBtnText: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.2,
+  },
+  checkBtnTextDisabled: {
+    color: "rgba(255, 255, 255, 0.48)",
   },
 });

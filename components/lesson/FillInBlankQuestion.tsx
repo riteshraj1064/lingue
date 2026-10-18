@@ -27,6 +27,7 @@ import {
   vec,
 } from "@shopify/react-native-skia";
 
+import { useApp } from "@/context/AppContext";
 import { FillInBlankQuestionData } from "./types";
 
 /* ============================================================
@@ -86,6 +87,7 @@ export const FillInBlankQuestion: React.FC<
   disabled = false,
 }) => {
     const { width, height } = useWindowDimensions();
+    const { selectedTargetLang } = useApp()
 
     /* ==========================================================
        RESPONSIVE SCALE
@@ -484,7 +486,6 @@ export const FillInBlankQuestion: React.FC<
                     underlineColorAndroid="transparent"
                     selectionColor={COLORS.purple}
                     cursorColor={COLORS.purple}
-                    includeFontPadding={false}
                     multiline={false}
                     numberOfLines={1}
                     style={[
@@ -601,7 +602,7 @@ export const FillInBlankQuestion: React.FC<
                 </View>
 
                 <Text style={styles.helperText}>
-                  Type your answer in English
+                  Type your answer in {selectedTargetLang?.name}
                 </Text>
               </View>
             </Animated.View>
@@ -1382,6 +1383,7 @@ const styles = StyleSheet.create({
   },
 
   blankBorder: {
+    //@ts-ignore
     ...StyleSheet.absoluteFillObject,
 
     borderRadius: 17,
@@ -1541,6 +1543,7 @@ const styles = StyleSheet.create({
   },
 
   wordChipBorder: {
+    //@ts-ignore
     ...StyleSheet.absoluteFillObject,
 
     borderRadius: 18,

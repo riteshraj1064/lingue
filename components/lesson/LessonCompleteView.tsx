@@ -26,6 +26,7 @@ import { Confetti } from "../Confetti";
 import { Mascot } from "../Mascot";
 import { PrimaryButton } from "../PrimaryButton";
 import { RewardMysteryBox } from "./RewardMysteryBox";
+import { soundService } from "../../services/soundService";
 
 /* ================================================================
    TYPES
@@ -592,6 +593,7 @@ export const LessonCompleteView: React.FC<
 
     const handleBoxOpen = () => {
       setIsBoxOpened(true);
+      soundService.playComplete();
       Animated.timing(detailsAnim, {
         toValue: 1,
         duration: 550,
