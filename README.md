@@ -16,6 +16,21 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+## Legal and account pages
+
+The in-app Terms of Service, Privacy Policy, Subscription Policy, and Delete Account
+pages load their hosted pages in a WebView. Set these public URLs in `.env` before
+building the app:
+
+```dotenv
+EXPO_PUBLIC_TERMS_URL=https://example.com/terms
+EXPO_PUBLIC_PRIVACY_POLICY_URL=https://example.com/privacy
+EXPO_PUBLIC_SUBSCRIPTION_POLICY_URL=https://example.com/subscription-policy
+EXPO_PUBLIC_DELETE_ACCOUNT_URL=https://example.com/delete-account
+```
+
+Use the matching names from `.env.example`. Each URL must use `https://` or `http://`.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

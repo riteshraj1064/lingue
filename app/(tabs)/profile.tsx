@@ -9,7 +9,7 @@ import {
   Rect,
   vec,
 } from "@shopify/react-native-skia";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -186,6 +186,15 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     await logout();
     router.replace("/(auth)/login");
+  };
+
+  const openPolicy = (
+    document: "terms" | "privacy" | "subscription" | "deleteAccount"
+  ) => {
+    router.push({
+      pathname: "/policy",
+      params: { document },
+    } as unknown as Href);
   };
 
 
@@ -715,6 +724,68 @@ export default function ProfileScreen() {
                 size={17}
                 color={COLORS.textSecondary}
               />
+            </TouchableOpacity>
+
+            <View style={styles.actionDivider} />
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.75}
+              onPress={() => openPolicy("terms")}
+              style={styles.actionRowBtn}
+            >
+              <View style={[styles.actionIconPod, styles.purplePod]}>
+                <Ionicons name="document-text-outline" size={18} color={COLORS.purple} />
+              </View>
+              <Text style={styles.actionRowText}>Terms of Service</Text>
+              <Ionicons name="chevron-forward" size={17} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+
+            <View style={styles.actionDivider} />
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.75}
+              onPress={() => openPolicy("privacy")}
+              style={styles.actionRowBtn}
+            >
+              <View style={[styles.actionIconPod, styles.cyanPod]}>
+                <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.cyan} />
+              </View>
+              <Text style={styles.actionRowText}>Privacy Policy</Text>
+              <Ionicons name="chevron-forward" size={17} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+
+            <View style={styles.actionDivider} />
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.75}
+              onPress={() => openPolicy("subscription")}
+              style={styles.actionRowBtn}
+            >
+              <View style={[styles.actionIconPod, styles.goldPod]}>
+                <Ionicons name="card-outline" size={18} color={COLORS.gold} />
+              </View>
+              <Text style={styles.actionRowText}>Subscription Policy</Text>
+              <Ionicons name="chevron-forward" size={17} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+
+            <View style={styles.actionDivider} />
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.75}
+              onPress={() => openPolicy("deleteAccount")}
+              style={styles.actionRowBtn}
+            >
+              <View style={[styles.actionIconPod, styles.dangerPod]}>
+                <Ionicons name="person-remove-outline" size={18} color={COLORS.danger} />
+              </View>
+              <Text style={[styles.actionRowText, styles.logoutText]}>
+                Delete Account
+              </Text>
+              <Ionicons name="chevron-forward" size={17} color={COLORS.textSecondary} />
             </TouchableOpacity>
 
             <View style={styles.actionDivider} />

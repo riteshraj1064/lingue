@@ -110,6 +110,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="lesson" />
               <Stack.Screen name="plans" />
+              <Stack.Screen name="policy" />
             </Stack>
 
           </View>
